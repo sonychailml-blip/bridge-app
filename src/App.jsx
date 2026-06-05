@@ -1,0 +1,696 @@
+import { useState, useEffect, useRef } from "react";
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signInWithPopup,
+  signOut,
+  onAuthStateChanged,
+  sendEmailVerification,
+  reload,
+} from "firebase/auth";
+import {
+  collection,
+  addDoc,
+  onSnapshot,
+  query,
+  orderBy,
+  doc,
+  updateDoc,
+  increment,
+  arrayUnion,
+  arrayRemove,
+  serverTimestamp,
+  getDoc,
+  setDoc,
+} from "firebase/firestore";
+import { auth, googleProvider, db } from "./firebase";
+
+const FONT = `@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;1,400&family=Lato:wght@300;400&display=swap');`;
+const BANNED_WORDS = ["drugs","cocaine","heroin","buy weed","sell drugs","murder","terrorism"];
+const REPORT_THRESHOLD = 3;
+const MONTH = 30 * 24 * 3600000;
+
+export default function App() {
+  // auth
+  const [authScreen, setAuthScreen] = useState("login");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
+  const [nicknameInput, setNicknameInput] = useState("");
+  const [authError, setAuthError] = useState("");
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  // app
+  const [screen, setScreen] = useState("feed");
+  const [nickname, setNickname] = useState("");
+  const [statements, setStatements] = useState([]);
+  const [clicked, setClicked] = useState(new Set());
+  const [reported, setReported] = useState(new Set());
+  const [searchQuery, setSearchQuery] = useState("");
+  const [newStatement, setNewStatement] = useState("");
+  const [matches, setMatches] = useState([]);
+  const [allUsers, setAllUsers] = useState([]);
+  const [chatList, setChatList] = useState([]); // [{matchUser, lastMsg, lastTs, unread}]
+  const [activeChat, setActiveChat] = useState(null);
+  const [chatMessages, setChatMessages] = useState([]);
+  const [chatInput, setChatInput] = useState("");
+  const [showCommon, setShowCommon] = useState(false);
+  const [modal, setModal] = useState(null); // {type, id?}
+  const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const [notification, setNotification] = useState(null);
+  const [notifKey, setNotifKey] = useState(0);
+  const chatEndRef = useRef(null);
+
+  const showNotif = (msg) => { setNotification(msg); setNotifKey(k => k + 1); };
+
+  // --- AUTH ---
+  useEffect(() => {
+    const unsub = onAuthStateChanged(auth, async (u) => {
+      if (u) {
+        setUser(u);
+        const snap = await getDoc(doc(db, "users", u.uid));
+        if (snap.exists()) {
+          setNickname(snap.data().nickname);
+          setClicked(new Set(snap.data().clicked || []));
+        }
+      } else {
+        setUser(null);
+        setNickname("");
+        setClicked(new Set());
+      }
+      setLoading(false);
+    });
+    return unsub;
+  }, []);
+
+  const handleRegister = async () => {
+    setAuthError("");
+    if (nicknameInput.trim().length < 2) { setAuthError("Nickname too short"); return; }
+    if (password !== password2) { setAuthError("Passwords don't match"); return; }
+    try {
+      const cred = await createUserWithEmailAndPassword(auth, email, password);
+      await sendEmailVerification(cred.user);
+      await setDoc(doc(db, "users", cred.user.uid), {
+        nickname: nicknameInput.trim(), clicked: [], ts: serverTimestamp(),
+      });
+      setNickname(nicknameInput.trim());
+      await signOut(auth);
+      setAuthScreen("verify");
+    } catch (e) { setAuthError(e.message.replace("Firebase: ", "")); }
+  };
+
+  const handleLogin = async () => {
+    setAuthError("");
+    try {
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      await reload(cred.user);
+      if (!cred.user.emailVerified) {
+        await signOut(auth);
+        setAuthError("Please verify your email first. Check your inbox.");
+        return;
+      }
+    } catch (e) { setAuthError(e.message.replace("Firebase: ", "")); }
+  };
+
+  const handleGoogle = async () => {
+    setAuthError("");
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      const snap = await getDoc(doc(db, "users", cred.user.uid));
+      if (!snap.exists()) {
+        const nick = cred.user.displayName?.split(" ")[0]?.toLowerCase() || "user" + Date.now();
+        await setDoc(doc(db, "users", cred.user.uid), { nickname: nick, clicked: [], ts: serverTimestamp() });
+        setNickname(nick);
+      }
+    } catch (e) { setAuthError(e.message.replace("Firebase: ", "")); }
+  };
+
+  const handleLogout = async () => {
+    await signOut(auth);
+    setShowLogoutMenu(false);
+    setScreen("feed");
+  };
+
+  // --- DATA ---
+  useEffect(() => {
+    if (!user) return;
+    const q = query(collection(db, "statements"), orderBy("ts", "desc"));
+    const unsub = onSnapshot(q, (snap) => {
+      const now = Date.now();
+      setStatements(snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => s.ts?.toMillis ? (now - s.ts.toMillis() < MONTH) : true)
+        .filter(s => (s.reports || 0) < REPORT_THRESHOLD)
+      );
+    });
+    return unsub;
+  }, [user]);
+
+  useEffect(() => {
+    if (!user) return;
+    const unsub = onSnapshot(collection(db, "users"), (snap) => {
+      setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.id !== user.uid));
+    });
+    return unsub;
+  }, [user]);
+
+  // compute matches
+  useEffect(() => {
+    if (clicked.size === 0) { setMatches([]); return; }
+    const computed = allUsers.map(u => {
+      const uc = new Set(u.clicked || []);
+      const common = [...clicked].filter(id => uc.has(id));
+      return { ...u, common: common.length, commonIds: common };
+    }).filter(u => u.common > 0).sort((a, b) => b.common - a.common);
+    setMatches(computed);
+  }, [clicked, allUsers]);
+
+  // build chat list from matches + listen for last messages
+  useEffect(() => {
+    if (!user || matches.length === 0) { setChatList([]); return; }
+    const unsubs = [];
+    const listMap = {};
+
+    matches.forEach(m => {
+      listMap[m.id] = { matchUser: m, lastMsg: null, lastTs: 0, unread: false };
+      const chatId = [user.uid, m.id].sort().join("_");
+      const q = query(collection(db, "chats", chatId, "messages"), orderBy("ts", "desc"));
+      const unsub = onSnapshot(q, (snap) => {
+        const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const last = msgs[0] || null;
+        listMap[m.id] = {
+          matchUser: m,
+          lastMsg: last,
+          lastTs: last?.ts?.toMillis?.() || 0,
+          unread: last && last.from !== user.uid,
+        };
+        // rebuild sorted list
+        const sorted = Object.values(listMap).sort((a, b) => {
+          if (a.unread && !b.unread) return -1;
+          if (!a.unread && b.unread) return 1;
+          if (a.lastTs && b.lastTs) return b.lastTs - a.lastTs;
+          if (a.lastTs && !b.lastTs) return -1;
+          if (!a.lastTs && b.lastTs) return 1;
+          return b.matchUser.common - a.matchUser.common;
+        });
+        setChatList(sorted.filter(c => c.lastMsg !== null)); // only show chats with messages
+      });
+      unsubs.push(unsub);
+    });
+
+    return () => unsubs.forEach(u => u());
+  }, [matches, user]);
+
+  // load active chat messages
+  useEffect(() => {
+    if (!activeChat || !user) return;
+    const chatId = [user.uid, activeChat.id].sort().join("_");
+    const q = query(collection(db, "chats", chatId, "messages"), orderBy("ts", "asc"));
+    const unsub = onSnapshot(q, (snap) => {
+      setChatMessages(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    });
+    return unsub;
+  }, [activeChat, user]);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
+
+  // --- ACTIONS ---
+  const toggleClick = async (id) => {
+    if (modal) return;
+    const userRef = doc(db, "users", user.uid);
+    const stmtRef = doc(db, "statements", id);
+    if (clicked.has(id)) {
+      setClicked(prev => { const n = new Set(prev); n.delete(id); return n; });
+      await updateDoc(userRef, { clicked: arrayRemove(id) });
+      await updateDoc(stmtRef, { clicks: increment(-1) });
+    } else {
+      setClicked(prev => new Set([...prev, id]));
+      await updateDoc(userRef, { clicked: arrayUnion(id) });
+      await updateDoc(stmtRef, { clicks: increment(1) });
+      showNotif("Added to your map");
+    }
+  };
+
+  const addStatement = async () => {
+    if (!newStatement.trim()) return;
+    if (BANNED_WORDS.some(w => newStatement.toLowerCase().includes(w))) {
+      showNotif("This violates our guidelines"); return;
+    }
+    const ref = await addDoc(collection(db, "statements"), {
+      text: newStatement.trim(), author: nickname, authorId: user.uid,
+      clicks: 1, reports: 0, ts: serverTimestamp(),
+    });
+    setClicked(prev => new Set([...prev, ref.id]));
+    await updateDoc(doc(db, "users", user.uid), { clicked: arrayUnion(ref.id) });
+    setNewStatement("");
+    showNotif("Statement published");
+  };
+
+  const confirmReport = async () => {
+    const id = modal.id;
+    setReported(prev => new Set([...prev, id]));
+    await updateDoc(doc(db, "statements", id), { reports: increment(1) });
+    setModal(null);
+    showNotif("Report submitted — thank you");
+  };
+
+  const confirmReset = async () => {
+    const ownIds = statements.filter(s => s.authorId === user.uid).map(s => s.id);
+    const newClicked = [...clicked].filter(id => !ownIds.includes(id));
+    setClicked(new Set(newClicked));
+    await updateDoc(doc(db, "users", user.uid), { clicked: newClicked });
+    setModal(null);
+    showNotif("Your map has been cleared");
+  };
+
+  const openChat = (matchUser) => {
+    setActiveChat(matchUser);
+    setShowCommon(false);
+    setScreen("chat");
+  };
+
+  const sendMessage = async () => {
+    if (!chatInput.trim()) return;
+    const chatId = [user.uid, activeChat.id].sort().join("_");
+    await addDoc(collection(db, "chats", chatId, "messages"), {
+      from: user.uid, fromNick: nickname,
+      text: chatInput.trim(), ts: serverTimestamp(),
+    });
+    setChatInput("");
+  };
+
+  const getCommonStatements = (matchUser) => {
+    const uc = new Set(matchUser.clicked || []);
+    return statements.filter(s => clicked.has(s.id) && uc.has(s.id));
+  };
+
+  // smart sort feed
+  const matchUserIds = new Set(matches.map(m => m.id));
+  const sortedStatements = [...statements]
+    .filter(s => searchQuery === "" || s.text.toLowerCase().includes(searchQuery.toLowerCase()))
+    .sort((a, b) => {
+      const aM = matchUserIds.has(a.authorId), bM = matchUserIds.has(b.authorId);
+      if (aM && !bM) return -1;
+      if (!aM && bM) return 1;
+      return (b.ts?.toMillis?.() || 0) - (a.ts?.toMillis?.() || 0);
+    });
+
+  const filteredMatches = matches.filter(m =>
+    searchQuery === "" || m.nickname?.toLowerCase().includes(searchQuery.toLowerCase())
+  );
+
+  if (loading) return (
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,letterSpacing:2,fontSize:12,textTransform:"uppercase",color:"#bbb"}}>
+      loading
+    </div>
+  );
+
+  return (
+    <>
+      <style>{FONT}</style>
+      <style>{`
+        *{margin:0;padding:0;box-sizing:border-box;}
+        body{background:#fff;}
+        .app{font-family:'Lato',sans-serif;font-weight:300;background:#fff;min-height:100vh;color:#111;max-width:480px;margin:0 auto;position:relative;}
+
+        /* AUTH */
+        .auth{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:48px 32px;}
+        .auth-logo{font-family:'Playfair Display',serif;font-size:52px;font-weight:400;letter-spacing:-1px;margin-bottom:12px;}
+        .auth-tagline{font-size:13px;letter-spacing:3px;text-transform:uppercase;color:#999;margin-bottom:56px;}
+        .auth-input{width:100%;border:none;border-bottom:1px solid #ddd;padding:10px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:15px;outline:none;background:transparent;color:#111;margin-bottom:20px;}
+        .auth-input::placeholder{color:#ccc;}
+        .auth-btn{width:100%;background:#111;color:#fff;border:none;padding:14px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;letter-spacing:3px;text-transform:uppercase;cursor:pointer;transition:opacity .2s;margin-top:8px;}
+        .auth-btn:hover{opacity:.75;}
+        .auth-btn.secondary{background:#fff;color:#111;border:1px solid #ddd;margin-top:12px;}
+        .auth-btn.secondary:hover{border-color:#111;}
+        .auth-error{font-size:12px;color:#c0392b;margin-top:8px;text-align:center;line-height:1.6;}
+        .auth-switch{margin-top:24px;font-size:12px;color:#bbb;text-align:center;}
+        .auth-switch span{color:#111;cursor:pointer;border-bottom:1px solid #111;}
+        .auth-notice{margin-top:32px;font-size:11px;color:#bbb;text-align:center;line-height:2;max-width:280px;}
+        .auth-notice strong{color:#999;font-weight:400;}
+        .verify-text{font-size:14px;color:#999;text-align:center;line-height:2;margin-bottom:32px;max-width:280px;}
+
+        /* NAV */
+        .nav{padding:0 24px;position:sticky;top:0;background:#fff;z-index:10;}
+        .nav-top{display:flex;align-items:center;justify-content:space-between;padding:18px 0 0;}
+        .nav-logo{font-family:'Playfair Display',serif;font-size:24px;font-weight:400;cursor:pointer;position:relative;}
+        .nav-tabs{display:flex;gap:24px;padding:14px 0 0;}
+        .nav-tab{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:12px;border-bottom:1px solid transparent;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:'Lato',sans-serif;font-weight:300;}
+        .nav-tab.active{color:#111;border-bottom-color:#111;}
+        .nav-tab:hover{color:#111;}
+        .nav-nick{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;}
+        .nav-divider{border:none;border-top:1px solid #f0f0f0;margin:0;}
+
+        /* LOGOUT MENU */
+        .logout-menu{position:absolute;top:32px;left:0;background:#fff;border:1px solid #e0e0e0;padding:8px 0;min-width:140px;z-index:20;}
+        .logout-item{display:block;width:100%;padding:10px 16px;font-family:'Lato',sans-serif;font-weight:300;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#999;cursor:pointer;background:none;border:none;text-align:left;transition:color .15s;}
+        .logout-item:hover{color:#111;}
+
+        /* SEARCH */
+        .search-bar{padding:12px 24px 0;position:sticky;top:93px;background:#fff;z-index:9;}
+        .search-input{width:100%;border:none;border-bottom:1px solid #f0f0f0;padding:8px 0 10px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
+        .search-input::placeholder{color:#ddd;}
+
+        /* FEED */
+        .feed-section{padding:0 24px 100px;}
+        .add-statement{padding:16px 0 20px;border-bottom:1px solid #f0f0f0;}
+        .add-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:8px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:15px;outline:none;background:transparent;color:#111;}
+        .add-input::placeholder{color:#ccc;}
+        .add-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
+        .add-btn{background:none;border:1px solid #111;padding:6px 16px;font-family:'Lato',sans-serif;font-weight:300;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#111;}
+        .add-btn:hover{background:#111;color:#fff;}
+        .reset-btn{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;cursor:pointer;padding:0;transition:color .15s;}
+        .reset-btn:hover{color:#111;}
+
+        .stmt{display:flex;align-items:center;justify-content:space-between;padding:15px 0;border-bottom:1px solid #f5f5f5;gap:12px;cursor:pointer;transition:opacity .15s;}
+        .stmt:hover{opacity:.85;}
+        .stmt:hover .report-btn{opacity:1;}
+        .stmt-left{flex:1;}
+        .stmt-text{font-size:15px;font-weight:300;line-height:1.5;color:#111;transition:all .15s;}
+        .stmt-text.on{font-style:italic;font-family:'Playfair Display',serif;}
+        .stmt-meta{font-size:10px;letter-spacing:1px;color:#ccc;margin-top:3px;text-transform:uppercase;}
+        .stmt-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
+        .dot{width:8px;height:8px;border-radius:50%;border:1px solid #ccc;transition:all .2s;}
+        .dot.on{background:#111;border-color:#111;}
+        .cnt{font-size:10px;color:#ccc;}
+        .report-btn{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#ddd;cursor:pointer;padding:0;opacity:0;transition:all .15s;}
+        .report-btn:hover{color:#999;}
+        .report-btn.done{opacity:1;color:#e0a0a0;cursor:default;}
+
+        /* MODAL */
+        .overlay{position:fixed;inset:0;background:rgba(255,255,255,.93);z-index:50;display:flex;align-items:center;justify-content:center;padding:32px;}
+        .modal{background:#fff;border:1px solid #e0e0e0;padding:32px;max-width:320px;width:100%;text-align:center;}
+        .modal-title{font-family:'Playfair Display',serif;font-size:18px;font-style:italic;margin-bottom:12px;}
+        .modal-text{font-size:13px;color:#999;line-height:1.7;margin-bottom:28px;}
+        .modal-actions{display:flex;gap:12px;justify-content:center;}
+        .modal-btn{padding:8px 24px;font-family:'Lato',sans-serif;font-weight:300;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;border:1px solid #ddd;background:none;color:#999;}
+        .modal-btn:hover{border-color:#111;color:#111;}
+        .modal-btn.danger{border-color:#111;color:#111;}
+        .modal-btn.danger:hover{background:#111;color:#fff;}
+
+        /* MATCHES */
+        .list-section{padding:0 24px 100px;}
+        .section-header{padding:20px 0 0;border-bottom:1px solid #f0f0f0;}
+        .section-sub{font-family:'Playfair Display',serif;font-size:13px;font-style:italic;color:#999;padding-bottom:16px;}
+        .match-item{display:flex;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid #f5f5f5;}
+        .match-nick{font-size:16px;font-weight:300;color:#111;}
+        .match-overlap{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;margin-top:3px;}
+        .match-overlap span{color:#111;font-weight:400;}
+        .write-btn{background:none;border:1px solid #ddd;padding:7px 14px;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:#999;transition:all .15s;}
+        .write-btn:hover{border-color:#111;color:#111;}
+
+        /* CHAT LIST */
+        .chatlist-item{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #f5f5f5;cursor:pointer;transition:opacity .15s;}
+        .chatlist-item:hover{opacity:.75;}
+        .chatlist-left{flex:1;min-width:0;}
+        .chatlist-nick{font-size:15px;font-weight:300;color:#111;display:flex;align-items:center;gap:8px;}
+        .unread-dot{width:6px;height:6px;border-radius:50%;background:#111;flex-shrink:0;}
+        .chatlist-preview{font-size:12px;color:#bbb;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;}
+        .chatlist-right{flex-shrink:0;margin-left:12px;}
+        .chatlist-overlap{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ddd;}
+        .chatlist-overlap span{color:#bbb;}
+
+        /* CHAT */
+        .chat-section{display:flex;flex-direction:column;height:100vh;}
+        .chat-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid #f0f0f0;flex-shrink:0;}
+        .chat-header-left{display:flex;align-items:center;gap:16px;}
+        .chat-back{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#bbb;cursor:pointer;padding:0;transition:color .15s;}
+        .chat-back:hover{color:#111;}
+        .chat-with{font-family:'Playfair Display',serif;font-size:17px;font-style:italic;}
+        .common-toggle{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:2px;border-bottom:1px solid transparent;transition:all .15s;}
+        .common-toggle:hover,.common-toggle.on{color:#111;border-bottom-color:#111;}
+        .common-panel{background:#fafafa;border-bottom:1px solid #f0f0f0;max-height:0;overflow:hidden;transition:max-height .3s ease;flex-shrink:0;}
+        .common-panel.open{max-height:280px;overflow-y:auto;}
+        .common-inner{padding:16px 24px;}
+        .common-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#bbb;margin-bottom:12px;}
+        .common-stmt{padding:8px 0;border-bottom:1px solid #f0f0f0;}
+        .common-stmt:last-child{border-bottom:none;}
+        .common-stmt-text{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#111;line-height:1.4;}
+        .common-stmt-author{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ccc;margin-top:3px;}
+        .chat-msgs{flex:1;overflow-y:auto;padding:24px 24px 16px;display:flex;flex-direction:column;gap:16px;}
+        .msg{max-width:78%;line-height:1.55;}
+        .msg.you{align-self:flex-end;text-align:right;}
+        .msg.them{align-self:flex-start;}
+        .msg-text{font-size:14px;font-weight:300;padding:10px 14px;display:inline-block;}
+        .msg.you .msg-text{background:#111;color:#fff;}
+        .msg.them .msg-text{background:#f5f5f5;color:#111;}
+        .msg-sender{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#ccc;margin-bottom:4px;}
+        .chat-input-row{padding:12px 24px 24px;border-top:1px solid #f0f0f0;display:flex;gap:12px;align-items:flex-end;flex-shrink:0;}
+        .chat-input{flex:1;border:none;border-bottom:1px solid #e0e0e0;padding:8px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:14px;outline:none;background:transparent;resize:none;line-height:1.5;}
+        .chat-input::placeholder{color:#ccc;}
+        .send-btn{background:#111;color:#fff;border:none;width:32px;height:32px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;}
+        .send-btn:hover{opacity:.7;}
+
+        .empty{padding:64px 0;text-align:center;}
+        .empty p{font-size:13px;color:#ccc;line-height:2;}
+
+        .notif{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#111;color:#fff;font-size:11px;letter-spacing:2px;text-transform:uppercase;padding:10px 20px;pointer-events:none;animation:fade 2.2s ease forwards;white-space:nowrap;z-index:100;}
+        @keyframes fade{0%{opacity:0;transform:translateX(-50%) translateY(8px);}12%{opacity:1;transform:translateX(-50%) translateY(0);}75%{opacity:1;}100%{opacity:0;}}
+        ::-webkit-scrollbar{width:2px;}
+        ::-webkit-scrollbar-track{background:transparent;}
+        ::-webkit-scrollbar-thumb{background:#e0e0e0;}
+      `}</style>
+
+      <div className="app" onClick={() => showLogoutMenu && setShowLogoutMenu(false)}>
+
+        {/* MODAL */}
+        {modal && (
+          <div className="overlay">
+            <div className="modal">
+              {modal.type === "report" && <>
+                <div className="modal-title">Report this statement?</div>
+                <div className="modal-text">It will be hidden if others report it too.<br/>Thank you for keeping Bridge safe.</div>
+                <div className="modal-actions">
+                  <button className="modal-btn" onClick={() => setModal(null)}>Cancel</button>
+                  <button className="modal-btn danger" onClick={confirmReport}>Report</button>
+                </div>
+              </>}
+              {modal.type === "reset" && <>
+                <div className="modal-title">Clear your map?</div>
+                <div className="modal-text">All your statements and agreements will be removed. Your conversations will remain.<br/><br/>This cannot be undone.</div>
+                <div className="modal-actions">
+                  <button className="modal-btn" onClick={() => setModal(null)}>Cancel</button>
+                  <button className="modal-btn danger" onClick={confirmReset}>Clear map</button>
+                </div>
+              </>}
+            </div>
+          </div>
+        )}
+
+        {/* AUTH */}
+        {!user && authScreen === "login" && (
+          <div className="auth">
+            <div className="auth-logo">Bridge</div>
+            <div className="auth-tagline">find your people</div>
+            <input className="auth-input" placeholder="email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+            <input className="auth-input" placeholder="password" type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key==="Enter" && handleLogin()} />
+            {authError && <div className="auth-error">{authError}</div>}
+            <button className="auth-btn" onClick={handleLogin}>Sign in</button>
+            <button className="auth-btn secondary" onClick={handleGoogle}>Continue with Google</button>
+            <div className="auth-switch">No account? <span onClick={() => { setAuthScreen("register"); setAuthError(""); }}>Create one</span></div>
+            <div className="auth-notice">
+              <strong>Bridge is open by design.</strong><br/>
+              Your statements and nickname are visible to everyone.<br/>
+              For privacy, take conversations to your own messengers.
+            </div>
+          </div>
+        )}
+
+        {!user && authScreen === "register" && (
+          <div className="auth">
+            <div className="auth-logo">Bridge</div>
+            <div className="auth-tagline">create account</div>
+            <input className="auth-input" placeholder="nickname (visible to others)" value={nicknameInput} onChange={e => setNicknameInput(e.target.value)} />
+            <input className="auth-input" placeholder="email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
+            <input className="auth-input" placeholder="password" type="password" value={password} onChange={e => setPassword(e.target.value)} />
+            <input className="auth-input" placeholder="confirm password" type="password" value={password2} onChange={e => setPassword2(e.target.value)} onKeyDown={e => e.key==="Enter" && handleRegister()} />
+            {authError && <div className="auth-error">{authError}</div>}
+            <button className="auth-btn" onClick={handleRegister}>Create account</button>
+            <button className="auth-btn secondary" onClick={handleGoogle}>Continue with Google</button>
+            <div className="auth-switch">Have an account? <span onClick={() => { setAuthScreen("login"); setAuthError(""); }}>Sign in</span></div>
+          </div>
+        )}
+
+        {!user && authScreen === "verify" && (
+          <div className="auth">
+            <div className="auth-logo">Bridge</div>
+            <div className="verify-text">
+              Check your email and confirm your address.<br/><br/>
+              Then come back and sign in.
+            </div>
+            <button className="auth-btn" onClick={() => setAuthScreen("login")}>Go to sign in</button>
+          </div>
+        )}
+
+        {/* MAIN APP */}
+        {user && screen !== "chat" && (
+          <>
+            <div className="nav">
+              <div className="nav-top">
+                <div className="nav-logo" onClick={(e) => { e.stopPropagation(); setShowLogoutMenu(v => !v); }}>
+                  Bridge
+                  {showLogoutMenu && (
+                    <div className="logout-menu">
+                      <div className="logout-item" style={{color:"#ccc",cursor:"default",fontSize:10}}>{nickname}</div>
+                      <button className="logout-item" onClick={handleLogout}>Sign out</button>
+                    </div>
+                  )}
+                </div>
+                <div className="nav-nick">{nickname}</div>
+              </div>
+              <div className="nav-tabs">
+                <button className={`nav-tab ${screen==="feed"?"active":""}`} onClick={() => { setScreen("feed"); setSearchQuery(""); }}>Statements</button>
+                <button className={`nav-tab ${screen==="matches"?"active":""}`} onClick={() => { setScreen("matches"); setSearchQuery(""); }}>
+                  Matches{clicked.size > 0 ? ` · ${matches.length}` : ""}
+                </button>
+                <button className={`nav-tab ${screen==="messages"?"active":""}`} onClick={() => { setScreen("messages"); setSearchQuery(""); }}>
+                  Messages{chatList.some(c => c.unread) ? " ·" : ""}
+                </button>
+              </div>
+            </div>
+            <hr className="nav-divider"/>
+
+            <div className="search-bar">
+              <input className="search-input"
+                placeholder={screen==="feed" ? "search statements…" : screen==="matches" ? "search by nickname…" : "search conversations…"}
+                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+            </div>
+
+            {/* FEED */}
+            {screen==="feed" && (
+              <div className="feed-section">
+                <div className="add-statement">
+                  <input className="add-input" placeholder="write a statement about yourself…"
+                    value={newStatement} onChange={e => setNewStatement(e.target.value)}
+                    onKeyDown={e => e.key==="Enter" && addStatement()} />
+                  <div className="add-row">
+                    <button className="reset-btn" onClick={() => setModal({type:"reset"})}>Reset map</button>
+                    <button className="add-btn" onClick={addStatement}>Publish</button>
+                  </div>
+                </div>
+                {sortedStatements.length === 0 && (
+                  <div className="empty"><p>no statements yet<br/>be the first to write one</p></div>
+                )}
+                {sortedStatements.map(s => (
+                  <div key={s.id} className="stmt" onClick={() => toggleClick(s.id)}>
+                    <div className="stmt-left">
+                      <div className={`stmt-text ${clicked.has(s.id)?"on":""}`}>{s.text}</div>
+                      <div className="stmt-meta">{s.author}</div>
+                    </div>
+                    <div className="stmt-right">
+                      <div className={`dot ${clicked.has(s.id)?"on":""}`}/>
+                      <div className="cnt">{(s.clicks||0).toLocaleString()}</div>
+                      {s.authorId !== user.uid && (
+                        <button className={`report-btn ${reported.has(s.id)?"done":""}`}
+                          onClick={e => { e.stopPropagation(); !reported.has(s.id) && setModal({type:"report",id:s.id}); }}>
+                          {reported.has(s.id) ? "reported" : "report"}
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* MATCHES */}
+            {screen==="matches" && (
+              <div className="list-section">
+                <div className="section-header">
+                  <div className="section-sub">people who share your words</div>
+                </div>
+                {matches.length===0 ? (
+                  <div className="empty"><p>click statements in the feed<br/>to find people who think like you</p></div>
+                ) : filteredMatches.length===0 ? (
+                  <div className="empty"><p>no match found for "{searchQuery}"</p></div>
+                ) : filteredMatches.map(m => (
+                  <div key={m.id} className="match-item">
+                    <div>
+                      <div className="match-nick">{m.nickname}</div>
+                      <div className="match-overlap"><span>{m.common}</span> statements in common</div>
+                    </div>
+                    <button className="write-btn" onClick={() => openChat(m)}>Write</button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* MESSAGES */}
+            {screen==="messages" && (
+              <div className="list-section">
+                <div className="section-header">
+                  <div className="section-sub">your conversations</div>
+                </div>
+                {chatList.length===0 ? (
+                  <div className="empty"><p>no conversations yet<br/>find matches and start writing</p></div>
+                ) : chatList
+                  .filter(c => searchQuery==="" || c.matchUser.nickname?.toLowerCase().includes(searchQuery.toLowerCase()))
+                  .map(c => (
+                    <div key={c.matchUser.id} className="chatlist-item" onClick={() => openChat(c.matchUser)}>
+                      <div className="chatlist-left">
+                        <div className="chatlist-nick">
+                          {c.unread && <span className="unread-dot"/>}
+                          {c.matchUser.nickname}
+                        </div>
+                        <div className="chatlist-preview">
+                          {c.lastMsg ? (c.lastMsg.from===user.uid ? `You: ${c.lastMsg.text}` : c.lastMsg.text) : ""}
+                        </div>
+                      </div>
+                      <div className="chatlist-right">
+                        <div className="chatlist-overlap"><span>{c.matchUser.common}</span> in common</div>
+                      </div>
+                    </div>
+                  ))}
+              </div>
+            )}
+          </>
+        )}
+
+        {/* CHAT */}
+        {user && screen==="chat" && activeChat && (
+          <div className="chat-section">
+            <div className="chat-header">
+              <div className="chat-header-left">
+                <button className="chat-back" onClick={() => setScreen("messages")}>← back</button>
+                <div className="chat-with">{activeChat.nickname}</div>
+              </div>
+              <button className={`common-toggle ${showCommon?"on":""}`} onClick={() => setShowCommon(!showCommon)}>
+                {getCommonStatements(activeChat).length} in common
+              </button>
+            </div>
+            <div className={`common-panel ${showCommon?"open":""}`}>
+              <div className="common-inner">
+                <div className="common-title">what you share</div>
+                {getCommonStatements(activeChat).map(s => (
+                  <div key={s.id} className="common-stmt">
+                    <div className="common-stmt-text">{s.text}</div>
+                    <div className="common-stmt-author">{s.author}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="chat-msgs">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className={`msg ${msg.from===user.uid?"you":"them"}`}>
+                  {msg.from!==user.uid && <div className="msg-sender">{msg.fromNick}</div>}
+                  <div className="msg-text">{msg.text}</div>
+                </div>
+              ))}
+              <div ref={chatEndRef}/>
+            </div>
+            <div className="chat-input-row">
+              <input className="chat-input" placeholder="write a message…"
+                value={chatInput} onChange={e => setChatInput(e.target.value)}
+                onKeyDown={e => e.key==="Enter" && sendMessage()} />
+              <button className="send-btn" onClick={sendMessage}>↑</button>
+            </div>
+          </div>
+        )}
+
+        {notification && <div className="notif" key={notifKey}>{notification}</div>}
+      </div>
+    </>
+  );
+}
