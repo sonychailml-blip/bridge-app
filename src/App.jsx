@@ -756,7 +756,7 @@ export default function App() {
                 {sortedStatements.map(s => (
                   <div key={s.id} className="stmt"
                     onClick={() => toggleClick(s.id)}
-                    onTouchStart={() => { window._pressTimer = setTimeout(() => { window._longPressed = true; if(s.authorId !== user.uid && !reported.has(s.id)) setModal({type:"report",id:s.id}); }, 500); window._longPressed = false; }}
+                    onTouchStart={() => { window._pressTimer = setTimeout(() => { window._longPressed = true; if(s.authorId !== user.uid && !reported.has(s.id)) setModal({type:"report",id:s.id}); }, 1000); window._longPressed = false; }}
                     onTouchEnd={() => { clearTimeout(window._pressTimer); }}
                   >
                     <div className="stmt-left">
