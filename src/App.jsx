@@ -52,6 +52,7 @@ export default function App() {
   const [newMatchDot, setNewMatchDot] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
   const [chatList, setChatList] = useState([]);
+  const [savedCommonCounts, setSavedCommonCounts] = useState({}); // {userId: count}
   const [newMessageDot, setNewMessageDot] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
   const [activeChatCommon, setActiveChatCommon] = useState([]); // cached common for active chat
@@ -157,6 +158,22 @@ export default function App() {
     return unsub;
   }, [user]);
 
+  // load saved common counts for Messages tab
+  useEffect(() => {
+    if (!user || allUsers.length === 0) return;
+    allUsers.forEach(async u => {
+      const chatId = [user.uid, u.id].sort().join("_");
+      const commonRef = doc(db, "chats", chatId, "meta", "common");
+      try {
+        const snap = await getDoc(commonRef);
+        if (snap.exists()) {
+          const count = snap.data().statements?.length || 0;
+          setSavedCommonCounts(prev => ({ ...prev, [u.id]: count }));
+        }
+      } catch(e) {}
+    });
+  }, [allUsers, user]);
+
   // compute matches + new match dot
   useEffect(() => {
     if (clicked.size === 0) { setMatches([]); return; }
@@ -241,6 +258,8 @@ export default function App() {
     if (BANNED_WORDS.some(w => newStatement.toLowerCase().includes(w))) {
       showNotif("This violates our guidelines"); return;
     }
+    const duplicate = statements.some(s => s.text.toLowerCase().trim() === newStatement.toLowerCase().trim());
+    if (duplicate) { showNotif("This statement already exists"); return; }
     const ref = await addDoc(collection(db, "statements"), {
       text: newStatement.trim(), author: nickname, authorId: user.uid,
       clicks: 1, reports: 0, ts: serverTimestamp(),
@@ -297,9 +316,11 @@ export default function App() {
     const merged = [...saved, ...newOnes];
     setActiveChatCommon(merged);
     // save merged back if anything changed
-    if (newOnes.length > 0 || saved.length === 0 && merged.length > 0) {
+    if (newOnes.length > 0 || (saved.length === 0 && merged.length > 0)) {
       await setDoc(commonRef, { statements: merged });
     }
+    // update savedCommonCounts so Messages tab shows correct number
+    setSavedCommonCounts(prev => ({ ...prev, [matchUser.id]: merged.length }));
   };
 
   const sendMessage = async () => {
@@ -315,6 +336,7 @@ export default function App() {
   // smart sort feed
   const matchUserIds = new Set(matches.map(m => m.id));
   const sortedStatements = [...statements]
+    .filter(s => !reported.has(s.id))
     .filter(s => searchQuery === "" || s.text.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
       const aM = matchUserIds.has(a.authorId), bM = matchUserIds.has(b.authorId);
@@ -700,7 +722,7 @@ export default function App() {
                         </div>
                       </div>
                       <div className="list-right">
-                        <div className="list-overlap"><span>{c.matchUser.common}</span> in common</div>
+                        <div className="list-overlap"><span>{savedCommonCounts[c.matchUser.id] ?? c.matchUser.common}</span> in common</div>
                       </div>
                     </div>
                   ))}
