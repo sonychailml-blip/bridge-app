@@ -65,6 +65,7 @@ export default function App() {
   const [notification, setNotification] = useState(null);
   const [notifKey, setNotifKey] = useState(0);
   const [adminStats, setAdminStats] = useState({ users: 0, statements: 0, chats: 0 });
+  const [isBlocked, setIsBlocked] = useState(false);
   const chatEndRef = useRef(null);
 
   const showNotif = (msg) => { setNotification(msg); setNotifKey(k => k + 1); };
@@ -78,6 +79,7 @@ export default function App() {
         if (snap.exists()) {
           setNickname(snap.data().nickname);
           setClicked(new Set(snap.data().clicked || []));
+          setIsBlocked(snap.data().blocked === true);
         }
       } else {
         setUser(null);
@@ -266,6 +268,7 @@ export default function App() {
 
   const addStatement = async () => {
     if (!newStatement.trim()) return;
+    if (isBlocked) { showNotif("Your account has been suspended"); return; }
     if (BANNED_WORDS.some(w => newStatement.toLowerCase().includes(w))) {
       showNotif("This violates our guidelines"); return;
     }
@@ -298,6 +301,11 @@ export default function App() {
   const blockUser = async (uid) => {
     await updateDoc(doc(db, "users", uid), { blocked: true });
     showNotif("User blocked");
+  };
+
+  const unblockUser = async (uid) => {
+    await updateDoc(doc(db, "users", uid), { blocked: false });
+    showNotif("User unblocked");
   };
 
   const confirmReset = async (fromCommon = false) => {
@@ -357,8 +365,10 @@ export default function App() {
 
   // smart sort feed
   const matchUserIds = new Set(matches.map(m => m.id));
+  const blockedUserIds = new Set(allUsers.filter(u => u.blocked).map(u => u.id));
   const sortedStatements = [...statements]
     .filter(s => !reported.has(s.id))
+    .filter(s => !blockedUserIds.has(s.authorId))
     .filter(s => searchQuery === "" || s.text.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
       const aM = matchUserIds.has(a.authorId), bM = matchUserIds.has(b.authorId);
@@ -375,6 +385,17 @@ export default function App() {
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,letterSpacing:2,fontSize:12,textTransform:"uppercase",color:"#bbb"}}>
       loading
     </div>
+  );
+
+  if (user && isBlocked) return (
+    <>
+      <style>{FONT}</style>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,padding:"48px 32px",textAlign:"center",maxWidth:480,margin:"0 auto"}}>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:36,fontWeight:400,marginBottom:16}}>Bridge</div>
+        <div style={{fontSize:13,color:"#999",lineHeight:2,marginBottom:32}}>Your account has been suspended.<br/>If you think this is a mistake,<br/>please contact us.</div>
+        <button onClick={handleLogout} style={{background:"none",border:"1px solid #ddd",padding:"10px 24px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#999"}}>Sign out</button>
+      </div>
+    </>
   );
 
   return (
@@ -842,11 +863,9 @@ export default function App() {
                         {(u.clicked||[]).length} statements clicked
                       </div>
                     </div>
-                    {!u.blocked && (
-                      <button onClick={() => blockUser(u.id)} style={{background:"none",border:"1px solid #ddd",padding:"5px 12px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#999",whiteSpace:"nowrap"}}>
-                        Block
-                      </button>
-                    )}
+                    <button onClick={() => u.blocked ? unblockUser(u.id) : blockUser(u.id)} style={{background:"none",border:"1px solid #ddd",padding:"5px 12px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color: u.blocked?"#111":"#999",whiteSpace:"nowrap"}}>
+                      {u.blocked ? "Unblock" : "Block"}
+                    </button>
                   </div>
                 ))}
               </div>
