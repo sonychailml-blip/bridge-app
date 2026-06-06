@@ -31,7 +31,6 @@ const REPORT_THRESHOLD = 3;
 const MONTH = 30 * 24 * 3600000;
 
 export default function App() {
-  // auth
   const [authScreen, setAuthScreen] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -41,7 +40,6 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // app
   const [screen, setScreen] = useState("feed");
   const [nickname, setNickname] = useState("");
   const [statements, setStatements] = useState([]);
@@ -50,13 +48,17 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [newStatement, setNewStatement] = useState("");
   const [matches, setMatches] = useState([]);
+  const [prevMatchCount, setPrevMatchCount] = useState(0);
+  const [newMatchDot, setNewMatchDot] = useState(false);
   const [allUsers, setAllUsers] = useState([]);
-  const [chatList, setChatList] = useState([]); // [{matchUser, lastMsg, lastTs, unread}]
+  const [chatList, setChatList] = useState([]);
+  const [newMessageDot, setNewMessageDot] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
+  const [activeChatCommon, setActiveChatCommon] = useState([]); // cached common for active chat
   const [chatMessages, setChatMessages] = useState([]);
   const [chatInput, setChatInput] = useState("");
   const [showCommon, setShowCommon] = useState(false);
-  const [modal, setModal] = useState(null); // {type, id?}
+  const [modal, setModal] = useState(null);
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [notification, setNotification] = useState(null);
   const [notifKey, setNotifKey] = useState(0);
@@ -64,7 +66,7 @@ export default function App() {
 
   const showNotif = (msg) => { setNotification(msg); setNotifKey(k => k + 1); };
 
-  // --- AUTH ---
+  // AUTH
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (u) => {
       if (u) {
@@ -132,7 +134,7 @@ export default function App() {
     setScreen("feed");
   };
 
-  // --- DATA ---
+  // DATA
   useEffect(() => {
     if (!user) return;
     const q = query(collection(db, "statements"), orderBy("ts", "desc"));
@@ -155,7 +157,7 @@ export default function App() {
     return unsub;
   }, [user]);
 
-  // compute matches
+  // compute matches + new match dot
   useEffect(() => {
     if (clicked.size === 0) { setMatches([]); return; }
     const computed = allUsers.map(u => {
@@ -164,14 +166,17 @@ export default function App() {
       return { ...u, common: common.length, commonIds: common };
     }).filter(u => u.common > 0).sort((a, b) => b.common - a.common);
     setMatches(computed);
+    if (computed.length > prevMatchCount && prevMatchCount > 0) {
+      setNewMatchDot(true);
+    }
+    setPrevMatchCount(computed.length);
   }, [clicked, allUsers]);
 
-  // build chat list from matches + listen for last messages
+  // chat list
   useEffect(() => {
     if (!user || matches.length === 0) { setChatList([]); return; }
     const unsubs = [];
     const listMap = {};
-
     matches.forEach(m => {
       listMap[m.id] = { matchUser: m, lastMsg: null, lastTs: 0, unread: false };
       const chatId = [user.uid, m.id].sort().join("_");
@@ -179,13 +184,8 @@ export default function App() {
       const unsub = onSnapshot(q, (snap) => {
         const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         const last = msgs[0] || null;
-        listMap[m.id] = {
-          matchUser: m,
-          lastMsg: last,
-          lastTs: last?.ts?.toMillis?.() || 0,
-          unread: last && last.from !== user.uid,
-        };
-        // rebuild sorted list
+        const isUnread = last && last.from !== user.uid;
+        listMap[m.id] = { matchUser: m, lastMsg: last, lastTs: last?.ts?.toMillis?.() || 0, unread: isUnread };
         const sorted = Object.values(listMap).sort((a, b) => {
           if (a.unread && !b.unread) return -1;
           if (!a.unread && b.unread) return 1;
@@ -194,15 +194,16 @@ export default function App() {
           if (!a.lastTs && b.lastTs) return 1;
           return b.matchUser.common - a.matchUser.common;
         });
-        setChatList(sorted.filter(c => c.lastMsg !== null)); // only show chats with messages
+        const withMsgs = sorted.filter(c => c.lastMsg !== null);
+        setChatList(withMsgs);
+        if (withMsgs.some(c => c.unread)) setNewMessageDot(true);
       });
       unsubs.push(unsub);
     });
-
     return () => unsubs.forEach(u => u());
   }, [matches, user]);
 
-  // load active chat messages
+  // active chat messages
   useEffect(() => {
     if (!activeChat || !user) return;
     const chatId = [user.uid, activeChat.id].sort().join("_");
@@ -217,7 +218,7 @@ export default function App() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
 
-  // --- ACTIONS ---
+  // ACTIONS
   const toggleClick = async (id) => {
     if (modal) return;
     const userRef = doc(db, "users", user.uid);
@@ -257,18 +258,26 @@ export default function App() {
     showNotif("Report submitted — thank you");
   };
 
-  const confirmReset = async () => {
+  const confirmReset = async (fromCommon = false) => {
     const ownIds = statements.filter(s => s.authorId === user.uid).map(s => s.id);
     const newClicked = [...clicked].filter(id => !ownIds.includes(id));
     setClicked(new Set(newClicked));
     await updateDoc(doc(db, "users", user.uid), { clicked: newClicked });
+    if (fromCommon) setActiveChatCommon([]);
     setModal(null);
     showNotif("Your map has been cleared");
   };
 
+  const getCommonStatements = (matchUser) => {
+    const uc = new Set(matchUser.clicked || []);
+    return statements.filter(s => clicked.has(s.id) && uc.has(s.id));
+  };
+
   const openChat = (matchUser) => {
     setActiveChat(matchUser);
+    setActiveChatCommon(getCommonStatements(matchUser));
     setShowCommon(false);
+    setNewMessageDot(false);
     setScreen("chat");
   };
 
@@ -280,11 +289,6 @@ export default function App() {
       text: chatInput.trim(), ts: serverTimestamp(),
     });
     setChatInput("");
-  };
-
-  const getCommonStatements = (matchUser) => {
-    const uc = new Set(matchUser.clicked || []);
-    return statements.filter(s => clicked.has(s.id) && uc.has(s.id));
   };
 
   // smart sort feed
@@ -333,15 +337,16 @@ export default function App() {
         .auth-notice strong{color:#999;font-weight:400;}
         .verify-text{font-size:14px;color:#999;text-align:center;line-height:2;margin-bottom:32px;max-width:280px;}
 
-        /* NAV */
+        /* NAV — always visible */
         .nav{padding:0 24px;position:sticky;top:0;background:#fff;z-index:10;}
         .nav-top{display:flex;align-items:center;justify-content:space-between;padding:18px 0 0;}
         .nav-logo{font-family:'Playfair Display',serif;font-size:24px;font-weight:400;cursor:pointer;position:relative;}
+        .nav-nick{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;}
         .nav-tabs{display:flex;gap:24px;padding:14px 0 0;}
-        .nav-tab{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:12px;border-bottom:1px solid transparent;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:'Lato',sans-serif;font-weight:300;}
+        .nav-tab{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:12px;border-bottom:1px solid transparent;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:'Lato',sans-serif;font-weight:300;display:flex;align-items:center;gap:6px;}
         .nav-tab.active{color:#111;border-bottom-color:#111;}
         .nav-tab:hover{color:#111;}
-        .nav-nick{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;}
+        .nav-dot{width:5px;height:5px;border-radius:50%;background:#111;flex-shrink:0;}
         .nav-divider{border:none;border-top:1px solid #f0f0f0;margin:0;}
 
         /* LOGOUT MENU */
@@ -353,6 +358,22 @@ export default function App() {
         .search-bar{padding:12px 24px 0;position:sticky;top:93px;background:#fff;z-index:9;}
         .search-input{width:100%;border:none;border-bottom:1px solid #f0f0f0;padding:8px 0 10px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
         .search-input::placeholder{color:#ddd;}
+
+        /* CHAT header inside nav area */
+        .chat-nav-row{display:flex;align-items:center;justify-content:space-between;padding:14px 0 12px;}
+        .chat-with{font-family:'Playfair Display',serif;font-size:17px;font-style:italic;}
+        .common-toggle{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:2px;border-bottom:1px solid transparent;transition:all .15s;}
+        .common-toggle:hover,.common-toggle.on{color:#111;border-bottom-color:#111;}
+        .common-panel{background:#fafafa;border-bottom:1px solid #f0f0f0;max-height:0;overflow:hidden;transition:max-height .3s ease;}
+        .common-panel.open{max-height:300px;overflow-y:auto;}
+        .common-inner{padding:16px 24px;}
+        .common-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#bbb;margin-bottom:12px;}
+        .common-reset{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#ccc;cursor:pointer;float:right;margin-top:-18px;transition:color .15s;}
+        .common-reset:hover{color:#111;}
+        .common-stmt{padding:8px 0;border-bottom:1px solid #f0f0f0;}
+        .common-stmt:last-child{border-bottom:none;}
+        .common-stmt-text{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#111;line-height:1.4;}
+        .common-stmt-author{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ccc;margin-top:3px;}
 
         /* FEED */
         .feed-section{padding:0 24px 100px;}
@@ -391,45 +412,25 @@ export default function App() {
         .modal-btn.danger{border-color:#111;color:#111;}
         .modal-btn.danger:hover{background:#111;color:#fff;}
 
-        /* MATCHES */
+        /* MATCHES + MESSAGES — same row height */
         .list-section{padding:0 24px 100px;}
         .section-header{padding:20px 0 0;border-bottom:1px solid #f0f0f0;}
         .section-sub{font-family:'Playfair Display',serif;font-size:13px;font-style:italic;color:#999;padding-bottom:16px;}
-        .match-item{display:flex;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid #f5f5f5;}
-        .match-nick{font-size:16px;font-weight:300;color:#111;}
-        .match-overlap{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;margin-top:3px;}
-        .match-overlap span{color:#111;font-weight:400;}
+        .list-item{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #f5f5f5;min-height:64px;}
+        .list-item-left{flex:1;min-width:0;}
+        .list-nick{font-size:15px;font-weight:300;color:#111;display:flex;align-items:center;gap:8px;}
+        .unread-dot{width:5px;height:5px;border-radius:50%;background:#111;flex-shrink:0;}
+        .list-sub{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#bbb;margin-top:3px;}
+        .list-sub span{color:#111;font-weight:400;}
+        .list-preview{font-size:12px;color:#bbb;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;}
+        .list-right{flex-shrink:0;margin-left:12px;}
         .write-btn{background:none;border:1px solid #ddd;padding:7px 14px;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:#999;transition:all .15s;}
         .write-btn:hover{border-color:#111;color:#111;}
+        .list-overlap{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ddd;}
+        .list-overlap span{color:#bbb;}
 
-        /* CHAT LIST */
-        .chatlist-item{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #f5f5f5;cursor:pointer;transition:opacity .15s;}
-        .chatlist-item:hover{opacity:.75;}
-        .chatlist-left{flex:1;min-width:0;}
-        .chatlist-nick{font-size:15px;font-weight:300;color:#111;display:flex;align-items:center;gap:8px;}
-        .unread-dot{width:6px;height:6px;border-radius:50%;background:#111;flex-shrink:0;}
-        .chatlist-preview{font-size:12px;color:#bbb;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:260px;}
-        .chatlist-right{flex-shrink:0;margin-left:12px;}
-        .chatlist-overlap{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ddd;}
-        .chatlist-overlap span{color:#bbb;}
-
-        /* CHAT */
-        .chat-section{display:flex;flex-direction:column;height:100vh;}
-        .chat-header{display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid #f0f0f0;flex-shrink:0;}
-        .chat-header-left{display:flex;align-items:center;gap:16px;}
-        .chat-back{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#bbb;cursor:pointer;padding:0;transition:color .15s;}
-        .chat-back:hover{color:#111;}
-        .chat-with{font-family:'Playfair Display',serif;font-size:17px;font-style:italic;}
-        .common-toggle{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:2px;border-bottom:1px solid transparent;transition:all .15s;}
-        .common-toggle:hover,.common-toggle.on{color:#111;border-bottom-color:#111;}
-        .common-panel{background:#fafafa;border-bottom:1px solid #f0f0f0;max-height:0;overflow:hidden;transition:max-height .3s ease;flex-shrink:0;}
-        .common-panel.open{max-height:280px;overflow-y:auto;}
-        .common-inner{padding:16px 24px;}
-        .common-title{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#bbb;margin-bottom:12px;}
-        .common-stmt{padding:8px 0;border-bottom:1px solid #f0f0f0;}
-        .common-stmt:last-child{border-bottom:none;}
-        .common-stmt-text{font-family:'Playfair Display',serif;font-style:italic;font-size:14px;color:#111;line-height:1.4;}
-        .common-stmt-author{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ccc;margin-top:3px;}
+        /* CHAT BODY */
+        .chat-body{display:flex;flex-direction:column;height:calc(100vh - 93px);}
         .chat-msgs{flex:1;overflow-y:auto;padding:24px 24px 16px;display:flex;flex-direction:column;gap:16px;}
         .msg{max-width:78%;line-height:1.55;}
         .msg.you{align-self:flex-end;text-align:right;}
@@ -473,7 +474,7 @@ export default function App() {
                 <div className="modal-text">All your statements and agreements will be removed. Your conversations will remain.<br/><br/>This cannot be undone.</div>
                 <div className="modal-actions">
                   <button className="modal-btn" onClick={() => setModal(null)}>Cancel</button>
-                  <button className="modal-btn danger" onClick={confirmReset}>Clear map</button>
+                  <button className="modal-btn danger" onClick={() => confirmReset(modal.fromCommon)}>Clear map</button>
                 </div>
               </>}
             </div>
@@ -517,16 +518,13 @@ export default function App() {
         {!user && authScreen === "verify" && (
           <div className="auth">
             <div className="auth-logo">Bridge</div>
-            <div className="verify-text">
-              Check your email and confirm your address.<br/><br/>
-              Then come back and sign in.
-            </div>
+            <div className="verify-text">Check your email and confirm your address.<br/><br/>Then come back and sign in.</div>
             <button className="auth-btn" onClick={() => setAuthScreen("login")}>Go to sign in</button>
           </div>
         )}
 
-        {/* MAIN APP */}
-        {user && screen !== "chat" && (
+        {/* MAIN APP — nav always visible */}
+        {user && (
           <>
             <div className="nav">
               <div className="nav-top">
@@ -542,22 +540,58 @@ export default function App() {
                 <div className="nav-nick">{nickname}</div>
               </div>
               <div className="nav-tabs">
-                <button className={`nav-tab ${screen==="feed"?"active":""}`} onClick={() => { setScreen("feed"); setSearchQuery(""); }}>Statements</button>
-                <button className={`nav-tab ${screen==="matches"?"active":""}`} onClick={() => { setScreen("matches"); setSearchQuery(""); }}>
-                  Matches{clicked.size > 0 ? ` · ${matches.length}` : ""}
+                <button className={`nav-tab ${screen==="feed"?"active":""}`} onClick={() => { setScreen("feed"); setSearchQuery(""); }}>
+                  Statements
                 </button>
-                <button className={`nav-tab ${screen==="messages"?"active":""}`} onClick={() => { setScreen("messages"); setSearchQuery(""); }}>
-                  Messages{chatList.some(c => c.unread) ? " ·" : ""}
+                <button className={`nav-tab ${screen==="matches"?"active":""}`} onClick={() => { setScreen("matches"); setSearchQuery(""); setNewMatchDot(false); }}>
+                  Matches {newMatchDot && screen!=="matches" && <span className="nav-dot"/>}
+                </button>
+                <button className={`nav-tab ${screen==="messages"?"active":""}`} onClick={() => { setScreen("messages"); setSearchQuery(""); setNewMessageDot(false); }}>
+                  Messages {newMessageDot && screen!=="messages" && <span className="nav-dot"/>}
                 </button>
               </div>
+
+              {/* chat name + in common button — shown only in chat screen */}
+              {screen==="chat" && activeChat && (
+                <div className="chat-nav-row">
+                  <div className="chat-with">{activeChat.nickname}</div>
+                  <button className={`common-toggle ${showCommon?"on":""}`} onClick={() => setShowCommon(!showCommon)}>
+                    {activeChatCommon.length} in common
+                  </button>
+                </div>
+              )}
             </div>
             <hr className="nav-divider"/>
 
-            <div className="search-bar">
-              <input className="search-input"
-                placeholder={screen==="feed" ? "search statements…" : screen==="matches" ? "search by nickname…" : "search conversations…"}
-                value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-            </div>
+            {/* common panel — shown only in chat */}
+            {screen==="chat" && activeChat && (
+              <div className={`common-panel ${showCommon?"open":""}`}>
+                <div className="common-inner">
+                  <div className="common-title">
+                    what you share
+                    <button className="common-reset" onClick={() => setModal({type:"reset", fromCommon:true})}>reset</button>
+                  </div>
+                  {activeChatCommon.length === 0 && (
+                    <div style={{fontSize:12,color:"#ccc",paddingTop:8}}>no common statements</div>
+                  )}
+                  {activeChatCommon.map(s => (
+                    <div key={s.id} className="common-stmt">
+                      <div className="common-stmt-text">{s.text}</div>
+                      <div className="common-stmt-author">{s.author}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* search bar — not in chat */}
+            {screen !== "chat" && (
+              <div className="search-bar">
+                <input className="search-input"
+                  placeholder={screen==="feed" ? "search statements…" : screen==="matches" ? "search by nickname…" : "search conversations…"}
+                  value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
+              </div>
+            )}
 
             {/* FEED */}
             {screen==="feed" && (
@@ -567,7 +601,7 @@ export default function App() {
                     value={newStatement} onChange={e => setNewStatement(e.target.value)}
                     onKeyDown={e => e.key==="Enter" && addStatement()} />
                   <div className="add-row">
-                    <button className="reset-btn" onClick={() => setModal({type:"reset"})}>Reset map</button>
+                    <button className="reset-btn" onClick={() => setModal({type:"reset",fromCommon:false})}>Reset map</button>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
@@ -606,12 +640,14 @@ export default function App() {
                 ) : filteredMatches.length===0 ? (
                   <div className="empty"><p>no match found for "{searchQuery}"</p></div>
                 ) : filteredMatches.map(m => (
-                  <div key={m.id} className="match-item">
-                    <div>
-                      <div className="match-nick">{m.nickname}</div>
-                      <div className="match-overlap"><span>{m.common}</span> statements in common</div>
+                  <div key={m.id} className="list-item">
+                    <div className="list-item-left">
+                      <div className="list-nick">{m.nickname}</div>
+                      <div className="list-sub"><span>{m.common}</span> statements in common</div>
                     </div>
-                    <button className="write-btn" onClick={() => openChat(m)}>Write</button>
+                    <div className="list-right">
+                      <button className="write-btn" onClick={() => openChat(m)}>Write</button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -628,65 +664,45 @@ export default function App() {
                 ) : chatList
                   .filter(c => searchQuery==="" || c.matchUser.nickname?.toLowerCase().includes(searchQuery.toLowerCase()))
                   .map(c => (
-                    <div key={c.matchUser.id} className="chatlist-item" onClick={() => openChat(c.matchUser)}>
-                      <div className="chatlist-left">
-                        <div className="chatlist-nick">
+                    <div key={c.matchUser.id} className="list-item" style={{cursor:"pointer"}} onClick={() => openChat(c.matchUser)}>
+                      <div className="list-item-left">
+                        <div className="list-nick">
                           {c.unread && <span className="unread-dot"/>}
                           {c.matchUser.nickname}
                         </div>
-                        <div className="chatlist-preview">
+                        <div className="list-preview">
                           {c.lastMsg ? (c.lastMsg.from===user.uid ? `You: ${c.lastMsg.text}` : c.lastMsg.text) : ""}
                         </div>
                       </div>
-                      <div className="chatlist-right">
-                        <div className="chatlist-overlap"><span>{c.matchUser.common}</span> in common</div>
+                      <div className="list-right">
+                        <div className="list-overlap"><span>{c.matchUser.common}</span> in common</div>
                       </div>
                     </div>
                   ))}
               </div>
             )}
-          </>
-        )}
 
-        {/* CHAT */}
-        {user && screen==="chat" && activeChat && (
-          <div className="chat-section">
-            <div className="chat-header">
-              <div className="chat-header-left">
-                <button className="chat-back" onClick={() => setScreen("messages")}>← back</button>
-                <div className="chat-with">{activeChat.nickname}</div>
-              </div>
-              <button className={`common-toggle ${showCommon?"on":""}`} onClick={() => setShowCommon(!showCommon)}>
-                {getCommonStatements(activeChat).length} in common
-              </button>
-            </div>
-            <div className={`common-panel ${showCommon?"open":""}`}>
-              <div className="common-inner">
-                <div className="common-title">what you share</div>
-                {getCommonStatements(activeChat).map(s => (
-                  <div key={s.id} className="common-stmt">
-                    <div className="common-stmt-text">{s.text}</div>
-                    <div className="common-stmt-author">{s.author}</div>
-                  </div>
-                ))}
-              </div>
-            </div>
-            <div className="chat-msgs">
-              {chatMessages.map((msg, i) => (
-                <div key={i} className={`msg ${msg.from===user.uid?"you":"them"}`}>
-                  {msg.from!==user.uid && <div className="msg-sender">{msg.fromNick}</div>}
-                  <div className="msg-text">{msg.text}</div>
+            {/* CHAT */}
+            {screen==="chat" && activeChat && (
+              <div className="chat-body">
+                <div className="chat-msgs">
+                  {chatMessages.map((msg, i) => (
+                    <div key={i} className={`msg ${msg.from===user.uid?"you":"them"}`}>
+                      {msg.from!==user.uid && <div className="msg-sender">{msg.fromNick}</div>}
+                      <div className="msg-text">{msg.text}</div>
+                    </div>
+                  ))}
+                  <div ref={chatEndRef}/>
                 </div>
-              ))}
-              <div ref={chatEndRef}/>
-            </div>
-            <div className="chat-input-row">
-              <input className="chat-input" placeholder="write a message…"
-                value={chatInput} onChange={e => setChatInput(e.target.value)}
-                onKeyDown={e => e.key==="Enter" && sendMessage()} />
-              <button className="send-btn" onClick={sendMessage}>↑</button>
-            </div>
-          </div>
+                <div className="chat-input-row">
+                  <input className="chat-input" placeholder="write a message…"
+                    value={chatInput} onChange={e => setChatInput(e.target.value)}
+                    onKeyDown={e => e.key==="Enter" && sendMessage()} />
+                  <button className="send-btn" onClick={sendMessage}>↑</button>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {notification && <div className="notif" key={notifKey}>{notification}</div>}
