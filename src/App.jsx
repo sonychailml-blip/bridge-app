@@ -14,6 +14,9 @@ import {
   onSnapshot,
   query,
   orderBy,
+  limit,
+  startAfter,
+  getDocs,
   doc,
   updateDoc,
   increment,
@@ -48,6 +51,10 @@ export default function App() {
   const [reported, setReported] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [newStatement, setNewStatement] = useState("");
+  const [lastStmtDoc, setLastStmtDoc] = useState(null);
+  const [hasMoreStmts, setHasMoreStmts] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const PAGE_SIZE = 20;
   const [matches, setMatches] = useState([]);
   const [prevMatchCount, setPrevMatchCount] = useState(0);
   const [newMatchDot, setNewMatchDot] = useState(false);
@@ -67,6 +74,7 @@ export default function App() {
   const [adminStats, setAdminStats] = useState({ users: 0, statements: 0, chats: 0 });
   const [isBlocked, setIsBlocked] = useState(false);
   const chatEndRef = useRef(null);
+  const feedEndRef = useRef(null);
 
   const showNotif = (msg) => { setNotification(msg); setNotifKey(k => k + 1); };
 
@@ -142,10 +150,14 @@ export default function App() {
   // DATA
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "statements"), orderBy("ts", "desc"));
+    // initial load — listen to first page in realtime
+    const q = query(collection(db, "statements"), orderBy("ts", "desc"), limit(20));
     const unsub = onSnapshot(q, (snap) => {
       const now = Date.now();
-      setStatements(snap.docs
+      const docs = snap.docs;
+      setLastStmtDoc(docs[docs.length - 1] || null);
+      setHasMoreStmts(docs.length === 20);
+      setStatements(docs
         .map(d => ({ id: d.id, ...d.data() }))
         .filter(s => s.ts?.toMillis ? (now - s.ts.toMillis() < MONTH) : true)
         .filter(s => (s.reports || 0) < REPORT_THRESHOLD)
@@ -153,6 +165,37 @@ export default function App() {
     });
     return unsub;
   }, [user]);
+
+  // infinite scroll — observe sentinel at bottom of feed
+  useEffect(() => {
+    if (!feedEndRef.current) return;
+    const observer = new IntersectionObserver(
+      (entries) => { if (entries[0].isIntersecting) loadMoreStatements(); },
+      { threshold: 0.1 }
+    );
+    observer.observe(feedEndRef.current);
+    return () => observer.disconnect();
+  }, [lastStmtDoc, hasMoreStmts, loadingMore]);
+
+  const loadMoreStatements = async () => {
+    if (!lastStmtDoc || !hasMoreStmts || loadingMore) return;
+    setLoadingMore(true);
+    const now = Date.now();
+    const q = query(collection(db, "statements"), orderBy("ts", "desc"), startAfter(lastStmtDoc), limit(20));
+    const snap = await getDocs(q);
+    const newDocs = snap.docs;
+    setLastStmtDoc(newDocs[newDocs.length - 1] || lastStmtDoc);
+    setHasMoreStmts(newDocs.length === 20);
+    const newStmts = newDocs
+      .map(d => ({ id: d.id, ...d.data() }))
+      .filter(s => s.ts?.toMillis ? (now - s.ts.toMillis() < MONTH) : true)
+      .filter(s => (s.reports || 0) < REPORT_THRESHOLD);
+    setStatements(prev => {
+      const ids = new Set(prev.map(s => s.id));
+      return [...prev, ...newStmts.filter(s => !ids.has(s.id))];
+    });
+    setLoadingMore(false);
+  };
 
   useEffect(() => {
     if (!user) return;
@@ -732,6 +775,11 @@ export default function App() {
                     </div>
                   </div>
                 ))}
+                {hasMoreStmts && (
+                  <div ref={feedEndRef} style={{padding:"16px 0",textAlign:"center"}}>
+                    {loadingMore && <span style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>loading…</span>}
+                  </div>
+                )}
               </div>
             )}
 
