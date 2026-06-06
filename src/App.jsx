@@ -481,7 +481,7 @@ export default function App() {
       <style>{FONT}</style>
       <style>{`
         *{margin:0;padding:0;box-sizing:border-box;}
-        body{background:#fff;}
+        body{background:#fff;overflow-y:scroll;}
         .app{font-family:'Lato',sans-serif;font-weight:300;background:#fff;min-height:100vh;color:#111;max-width:480px;margin:0 auto;position:relative;}
 
         /* AUTH */
