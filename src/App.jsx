@@ -322,9 +322,14 @@ export default function App() {
       showNotif("Common ground cleared");
       return;
     }
-    // reset map: clear all clicked — chats and in-common are unaffected
+    // reset map: clear all clicked and decrement counters on each statement
+    const allClicked = [...clicked];
     setClicked(new Set());
     await updateDoc(doc(db, "users", user.uid), { clicked: [] });
+    // decrement click count on every statement the user had clicked
+    await Promise.all(allClicked.map(id =>
+      updateDoc(doc(db, "statements", id), { clicks: increment(-1) }).catch(() => {})
+    ));
     setModal(null);
     showNotif("Your map has been cleared");
   };
