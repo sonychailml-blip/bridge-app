@@ -481,9 +481,8 @@ export default function App() {
       <style>{FONT}</style>
       <style>{`
         *{margin:0;padding:0;box-sizing:border-box;}
-        html{overflow-y:scroll;}
         body{background:#fff;overflow-y:scroll;}
-        .app{font-family:'Lato',sans-serif;font-weight:300;background:#fff;min-height:100vh;color:#111;width:100%;max-width:480px;margin:0 auto;position:relative;box-sizing:border-box;}
+        .app{font-family:'Lato',sans-serif;font-weight:300;background:#fff;min-height:100vh;color:#111;max-width:480px;margin:0 auto;position:relative;}
 
         /* AUTH */
         .auth{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:100vh;padding:48px 32px;}
@@ -503,7 +502,7 @@ export default function App() {
         .verify-text{font-size:14px;color:#999;text-align:center;line-height:2;margin-bottom:32px;max-width:280px;}
 
         /* NAV — always visible */
-        .nav{padding:0 24px;position:sticky;top:0;background:#fff;z-index:10;width:100%;max-width:480px;box-sizing:border-box;}
+        .nav{padding:0 24px;position:sticky;top:0;background:#fff;z-index:10;width:100%;max-width:480px;}
         .nav-top{display:flex;align-items:center;justify-content:space-between;padding:18px 0 0;height:46px;}
         .nav-logo{font-family:'Playfair Display',serif;font-size:24px;font-weight:400;cursor:pointer;position:relative;flex-shrink:0;}
         .nav-nick{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;flex-shrink:0;}
