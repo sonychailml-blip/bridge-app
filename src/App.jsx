@@ -310,8 +310,14 @@ export default function App() {
 
   const confirmReset = async (fromCommon = false) => {
     if (fromCommon) {
-      // reset only in-common panel for active chat
+      // reset only in-common panel for active chat — also clear in Firestore
       setActiveChatCommon([]);
+      if (activeChat) {
+        const chatId = [user.uid, activeChat.id].sort().join("_");
+        const commonRef = doc(db, "chats", chatId, "meta", "common");
+        await setDoc(commonRef, { statements: [] });
+        setSavedCommonCounts(prev => ({ ...prev, [activeChat.id]: 0 }));
+      }
       setModal(null);
       showNotif("Common ground cleared");
       return;
