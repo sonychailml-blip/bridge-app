@@ -172,20 +172,21 @@ export default function App() {
     setPrevMatchCount(computed.length);
   }, [clicked, allUsers]);
 
-  // chat list
+  // chat list — listens to all users independently from matches so chats survive reset
   useEffect(() => {
-    if (!user || matches.length === 0) { setChatList([]); return; }
+    if (!user || allUsers.length === 0) return;
     const unsubs = [];
     const listMap = {};
-    matches.forEach(m => {
-      listMap[m.id] = { matchUser: m, lastMsg: null, lastTs: 0, unread: false };
-      const chatId = [user.uid, m.id].sort().join("_");
+    allUsers.forEach(u => {
+      const chatId = [user.uid, u.id].sort().join("_");
       const q = query(collection(db, "chats", chatId, "messages"), orderBy("ts", "desc"));
       const unsub = onSnapshot(q, (snap) => {
         const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
         const last = msgs[0] || null;
-        const isUnread = last && last.from !== user.uid;
-        listMap[m.id] = { matchUser: m, lastMsg: last, lastTs: last?.ts?.toMillis?.() || 0, unread: isUnread };
+        if (!last) return;
+        const isUnread = last.from !== user.uid;
+        const matchUser = matches.find(m => m.id === u.id) || { ...u, common: 0 };
+        listMap[u.id] = { matchUser, lastMsg: last, lastTs: last?.ts?.toMillis?.() || 0, unread: isUnread };
         const sorted = Object.values(listMap).sort((a, b) => {
           if (a.unread && !b.unread) return -1;
           if (!a.unread && b.unread) return 1;
@@ -194,14 +195,13 @@ export default function App() {
           if (!a.lastTs && b.lastTs) return 1;
           return b.matchUser.common - a.matchUser.common;
         });
-        const withMsgs = sorted.filter(c => c.lastMsg !== null);
-        setChatList(withMsgs);
-        if (withMsgs.some(c => c.unread)) setNewMessageDot(true);
+        setChatList(sorted);
+        if (sorted.some(c => c.unread)) setNewMessageDot(true);
       });
       unsubs.push(unsub);
     });
     return () => unsubs.forEach(u => u());
-  }, [matches, user]);
+  }, [allUsers, user, matches]);
 
   // active chat messages
   useEffect(() => {
@@ -221,6 +221,7 @@ export default function App() {
   // ACTIONS
   const toggleClick = async (id) => {
     if (modal) return;
+    if (window._longPressed) { window._longPressed = false; return; }
     const userRef = doc(db, "users", user.uid);
     const stmtRef = doc(db, "statements", id);
     if (clicked.has(id)) {
@@ -259,11 +260,16 @@ export default function App() {
   };
 
   const confirmReset = async (fromCommon = false) => {
-    const ownIds = statements.filter(s => s.authorId === user.uid).map(s => s.id);
-    const newClicked = [...clicked].filter(id => !ownIds.includes(id));
-    setClicked(new Set(newClicked));
-    await updateDoc(doc(db, "users", user.uid), { clicked: newClicked });
-    if (fromCommon) setActiveChatCommon([]);
+    if (fromCommon) {
+      // reset only in-common panel for active chat
+      setActiveChatCommon([]);
+      setModal(null);
+      showNotif("Common ground cleared");
+      return;
+    }
+    // reset map: clear all clicked — chats and in-common are unaffected
+    setClicked(new Set());
+    await updateDoc(doc(db, "users", user.uid), { clicked: [] });
     setModal(null);
     showNotif("Your map has been cleared");
   };
@@ -273,12 +279,27 @@ export default function App() {
     return statements.filter(s => clicked.has(s.id) && uc.has(s.id));
   };
 
-  const openChat = (matchUser) => {
+  const openChat = async (matchUser) => {
     setActiveChat(matchUser);
-    setActiveChatCommon(getCommonStatements(matchUser));
     setShowCommon(false);
     setNewMessageDot(false);
     setScreen("chat");
+    const chatId = [user.uid, matchUser.id].sort().join("_");
+    const commonRef = doc(db, "chats", chatId, "meta", "common");
+    // compute current common statements
+    const current = getCommonStatements(matchUser).map(s => ({ id: s.id, text: s.text, author: s.author }));
+    // load saved from Firestore
+    const commonSnap = await getDoc(commonRef);
+    const saved = commonSnap.exists() ? (commonSnap.data().statements || []) : [];
+    // merge: keep all saved + add new ones not already saved
+    const savedIds = new Set(saved.map(s => s.id));
+    const newOnes = current.filter(s => !savedIds.has(s.id));
+    const merged = [...saved, ...newOnes];
+    setActiveChatCommon(merged);
+    // save merged back if anything changed
+    if (newOnes.length > 0 || saved.length === 0 && merged.length > 0) {
+      await setDoc(commonRef, { statements: merged });
+    }
   };
 
   const sendMessage = async () => {
@@ -609,7 +630,11 @@ export default function App() {
                   <div className="empty"><p>no statements yet<br/>be the first to write one</p></div>
                 )}
                 {sortedStatements.map(s => (
-                  <div key={s.id} className="stmt" onClick={() => toggleClick(s.id)}>
+                  <div key={s.id} className="stmt"
+                    onClick={() => toggleClick(s.id)}
+                    onTouchStart={() => { window._pressTimer = setTimeout(() => { window._longPressed = true; if(s.authorId !== user.uid && !reported.has(s.id)) setModal({type:"report",id:s.id}); }, 500); window._longPressed = false; }}
+                    onTouchEnd={() => { clearTimeout(window._pressTimer); }}
+                  >
                     <div className="stmt-left">
                       <div className={`stmt-text ${clicked.has(s.id)?"on":""}`}>{s.text}</div>
                       <div className="stmt-meta">{s.author}</div>
