@@ -52,6 +52,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [newStatement, setNewStatement] = useState("");
   const [lastStmtDoc, setLastStmtDoc] = useState(null);
+  const [searchResults, setSearchResults] = useState(null); // null = not searching
+  const [searchLoading, setSearchLoading] = useState(false);
   const [hasMoreStmts, setHasMoreStmts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
   const PAGE_SIZE = 20;
@@ -417,13 +419,35 @@ export default function App() {
     setChatInput("");
   };
 
+  // server-side search
+  useEffect(() => {
+    if (!user) return;
+    if (!searchQuery.trim() || screen !== "feed") {
+      setSearchResults(null);
+      return;
+    }
+    const timer = setTimeout(async () => {
+      setSearchLoading(true);
+      const q = query(collection(db, "statements"), orderBy("text"), limit(50));
+      const snap = await getDocs(q);
+      const lower = searchQuery.toLowerCase();
+      const results = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => s.text.toLowerCase().includes(lower))
+        .filter(s => !reported.has(s.id))
+        .filter(s => !blockedUserIds.has(s.authorId));
+      setSearchResults(results);
+      setSearchLoading(false);
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [searchQuery, screen, user]);
+
   // smart sort feed
   const matchUserIds = new Set(matches.map(m => m.id));
   const blockedUserIds = new Set(allUsers.filter(u => u.blocked).map(u => u.id));
   const sortedStatements = [...statements]
     .filter(s => !reported.has(s.id))
     .filter(s => !blockedUserIds.has(s.authorId))
-    .filter(s => searchQuery === "" || s.text.toLowerCase().includes(searchQuery.toLowerCase()))
     .sort((a, b) => {
       const aM = matchUserIds.has(a.authorId), bM = matchUserIds.has(b.authorId);
       if (aM && !bM) return -1;
@@ -478,16 +502,16 @@ export default function App() {
         .verify-text{font-size:14px;color:#999;text-align:center;line-height:2;margin-bottom:32px;max-width:280px;}
 
         /* NAV — always visible */
-        .nav{padding:0 24px;position:sticky;top:0;background:#fff;z-index:10;}
-        .nav-top{display:flex;align-items:center;justify-content:space-between;padding:18px 0 0;}
-        .nav-logo{font-family:'Playfair Display',serif;font-size:24px;font-weight:400;cursor:pointer;position:relative;}
-        .nav-nick{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;}
-        .nav-tabs{display:flex;gap:24px;padding:14px 0 0;}
-        .nav-tab{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:12px;border-bottom:1px solid transparent;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:'Lato',sans-serif;font-weight:300;display:flex;align-items:center;gap:6px;}
+        .nav{padding:0 24px;position:sticky;top:0;background:#fff;z-index:10;width:100%;max-width:480px;}
+        .nav-top{display:flex;align-items:center;justify-content:space-between;padding:18px 0 0;height:46px;}
+        .nav-logo{font-family:'Playfair Display',serif;font-size:24px;font-weight:400;cursor:pointer;position:relative;flex-shrink:0;}
+        .nav-nick{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;flex-shrink:0;}
+        .nav-tabs{display:flex;gap:0;padding:12px 0 0;border-bottom:1px solid #f0f0f0;}
+        .nav-tab{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:12px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:'Lato',sans-serif;font-weight:300;display:flex;align-items:center;gap:6px;margin-right:20px;white-space:nowrap;}
         .nav-tab.active{color:#111;border-bottom-color:#111;}
         .nav-tab:hover{color:#111;}
         .nav-dot{width:5px;height:5px;border-radius:50%;background:#111;flex-shrink:0;}
-        .nav-divider{border:none;border-top:1px solid #f0f0f0;margin:0;}
+        .nav-divider{display:none;}
 
         /* LOGOUT MENU */
         .logout-menu{position:absolute;top:32px;left:0;background:#fff;border:1px solid #e0e0e0;padding:8px 0;min-width:140px;z-index:20;}
@@ -537,9 +561,9 @@ export default function App() {
         .dot{width:8px;height:8px;border-radius:50%;border:1px solid #ccc;transition:all .2s;}
         .dot.on{background:#111;border-color:#111;}
         .cnt{font-size:10px;color:#ccc;}
-        .report-btn{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:#ddd;cursor:pointer;padding:0;opacity:0;transition:all .15s;}
-        .report-btn:hover{color:#999;}
-        .report-btn.done{opacity:1;color:#e0a0a0;cursor:default;}
+        .r-btn{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;color:#ddd;cursor:pointer;padding:2px 4px;transition:color .15s;line-height:1;}
+        .r-btn:hover{color:#999;}
+        .r-done{font-size:10px;color:#e0a0a0;padding:2px 4px;}
 
         /* MODAL */
         .overlay{position:fixed;inset:0;background:rgba(255,255,255,.93);z-index:50;display:flex;align-items:center;justify-content:center;padding:32px;}
@@ -570,7 +594,7 @@ export default function App() {
         .list-overlap span{color:#bbb;}
 
         /* CHAT BODY */
-        .chat-body{display:flex;flex-direction:column;height:calc(100vh - 93px);}
+        .chat-body{display:flex;flex-direction:column;position:fixed;top:93px;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;}
         .chat-msgs{flex:1;overflow-y:auto;padding:24px 24px 16px;display:flex;flex-direction:column;gap:16px;}
         .msg{max-width:78%;line-height:1.55;}
         .msg.you{align-self:flex-end;text-align:right;}
@@ -580,8 +604,8 @@ export default function App() {
         .msg.them .msg-text{background:#f5f5f5;color:#111;}
         .msg-sender{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#ccc;margin-bottom:4px;}
         .chat-input-row{padding:12px 24px 24px;border-top:1px solid #f0f0f0;display:flex;gap:12px;align-items:flex-end;flex-shrink:0;}
-        .chat-input{flex:1;border:none;border-bottom:1px solid #e0e0e0;padding:8px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:14px;outline:none;background:transparent;resize:none;line-height:1.5;}
-        .chat-input::placeholder{color:#ccc;}
+        .chat-input{flex:1;border:none;border-bottom:1px solid #e0e0e0;padding:8px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:14px;outline:none;background:#fff;resize:none;line-height:1.5;color:#111;-webkit-text-fill-color:#111;}
+        .chat-input::placeholder{color:#ccc;-webkit-text-fill-color:#ccc;}
         .send-btn{background:#111;color:#fff;border:none;width:32px;height:32px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;}
         .send-btn:hover{opacity:.7;}
 
@@ -750,15 +774,12 @@ export default function App() {
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
-                {sortedStatements.length === 0 && (
-                  <div className="empty"><p>no statements yet<br/>be the first to write one</p></div>
+                {searchLoading && <div style={{padding:"24px 0",textAlign:"center",fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>searching…</div>}
+                {!searchLoading && (searchResults ?? sortedStatements).length === 0 && (
+                  <div className="empty"><p>{searchQuery ? "nothing found" : "no statements yet"}<br/>{!searchQuery && "be the first to write one"}</p></div>
                 )}
-                {sortedStatements.map(s => (
-                  <div key={s.id} className="stmt"
-                    onClick={() => toggleClick(s.id)}
-                    onTouchStart={() => { window._pressTimer = setTimeout(() => { window._longPressed = true; if(s.authorId !== user.uid && !reported.has(s.id)) setModal({type:"report",id:s.id}); }, 1000); window._longPressed = false; }}
-                    onTouchEnd={() => { clearTimeout(window._pressTimer); }}
-                  >
+                {!searchLoading && (searchResults ?? sortedStatements).map(s => (
+                  <div key={s.id} className="stmt" onClick={() => toggleClick(s.id)}>
                     <div className="stmt-left">
                       <div className={`stmt-text ${clicked.has(s.id)?"on":""}`}>{s.text}</div>
                       <div className="stmt-meta">{s.author}</div>
@@ -766,12 +787,13 @@ export default function App() {
                     <div className="stmt-right">
                       <div className={`dot ${clicked.has(s.id)?"on":""}`}/>
                       <div className="cnt">{(s.clicks||0).toLocaleString()}</div>
-                      {s.authorId !== user.uid && (
-                        <button className={`report-btn ${reported.has(s.id)?"done":""}`}
-                          onClick={e => { e.stopPropagation(); !reported.has(s.id) && setModal({type:"report",id:s.id}); }}>
-                          {reported.has(s.id) ? "reported" : "report"}
+                      {s.authorId !== user.uid && !reported.has(s.id) && (
+                        <button className="r-btn"
+                          onClick={e => { e.stopPropagation(); setModal({type:"report",id:s.id}); }}>
+                          r
                         </button>
                       )}
+                      {reported.has(s.id) && <span className="r-done">r</span>}
                     </div>
                   </div>
                 ))}
