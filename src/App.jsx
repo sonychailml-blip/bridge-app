@@ -595,7 +595,11 @@ export default function App() {
         .list-overlap span{color:#bbb;}
 
         /* CHAT BODY */
-        .chat-body{display:flex;flex-direction:column;height:calc(100vh - 93px);}
+        .chat-body{display:flex;flex-direction:column;flex:1;min-height:0;}
+        .chat-wrapper{display:flex;flex-direction:column;height:100vh;overflow:hidden;}
+        .chat-wrapper .nav{flex-shrink:0;}
+        .chat-wrapper .nav-divider{flex-shrink:0;}
+        .chat-wrapper .common-panel{flex-shrink:0;}
         .chat-msgs{flex:1;overflow-y:auto;padding:24px 24px 16px;display:flex;flex-direction:column;gap:16px;}
         .msg{max-width:78%;line-height:1.55;}
         .msg.you{align-self:flex-end;text-align:right;}
@@ -690,7 +694,7 @@ export default function App() {
 
         {/* MAIN APP — nav always visible */}
         {user && (
-          <>
+          <div className={screen==="chat" ? "chat-wrapper" : ""}>
             <div className="nav">
               <div className="nav-top">
                 <div className="nav-logo" onClick={(e) => { e.stopPropagation(); setShowLogoutMenu(v => !v); }}>
@@ -956,7 +960,7 @@ export default function App() {
             {/* CHAT */}
             {screen==="chat" && activeChat && (
               <div className="chat-body">
-                <div className="chat-msgs" style={{flex:1,overflowY:"auto",padding:"24px 24px 16px",display:"flex",flexDirection:"column",gap:16}}>
+                <div className="chat-msgs">
                   {chatMessages.map((msg, i) => (
                     <div key={i} className={`msg ${msg.from===user.uid?"you":"them"}`}>
                       {msg.from!==user.uid && <div className="msg-sender">{msg.fromNick}</div>}
@@ -973,7 +977,7 @@ export default function App() {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
 
         {notification && <div className="notif" key={notifKey}>{notification}</div>}
