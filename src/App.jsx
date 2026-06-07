@@ -466,15 +466,20 @@ export default function App() {
   // compute word cloud — top 30 most unique statements for a user
   const getCloud = (targetUserId, targetClicked) => {
     const userClickedSet = new Set(targetClicked || []);
-    return statements
+    const filtered = statements
       .filter(s => userClickedSet.has(s.id))
+      .filter(s => s.text.length <= 60) // skip very long statements
       .sort((a, b) => (a.clicks || 1) - (b.clicks || 1)) // rarest first
-      .slice(0, 30)
-      .map(s => ({
-        ...s,
-        // font size inversely proportional to click count — rarer = bigger
-        size: Math.max(11, Math.min(24, Math.round(24 - Math.log(s.clicks || 1) * 2.5)))
-      }));
+      .slice(0, 30);
+    if (filtered.length === 0) return [];
+    const minClicks = filtered[0].clicks || 1;
+    const maxClicks = filtered[filtered.length - 1].clicks || 1;
+    return filtered.map(s => ({
+      ...s,
+      size: maxClicks === minClicks
+        ? 17
+        : Math.round(13 + (1 - (s.clicks - minClicks) / (maxClicks - minClicks)) * 14)
+    }));
   };
 
   // smart sort feed
@@ -646,7 +651,7 @@ export default function App() {
         .section-sub{font-family:'Playfair Display',serif;font-size:13px;font-style:italic;color:#999;padding-bottom:16px;}
         .list-item{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #f5f5f5;min-height:64px;}
         .list-item-left{flex:1;min-width:0;}
-        .list-nick{font-size:15px;font-weight:300;color:#111;display:flex;align-items:center;gap:8px;}
+        .list-nick{font-size:15px;font-weight:300;color:#111;display:flex;align-items:center;gap:8px;}.list-nick[style*='cursor']{border-bottom:1px solid #e0e0e0;display:inline-flex;}
         .unread-dot{width:5px;height:5px;border-radius:50%;background:#111;flex-shrink:0;}
         .list-sub{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#bbb;margin-top:3px;}
         .list-sub span{color:#111;font-weight:400;}
@@ -833,7 +838,7 @@ export default function App() {
             )}
 
             {/* search bar — not in chat */}
-            {screen !== "chat" && (
+            {screen !== "chat" && screen !== "cloud" && (
               <div className="search-bar">
                 <input className="search-input"
                   placeholder={screen==="feed" ? "search statements…" : screen==="matches" ? "search by nickname…" : "search conversations…"}
@@ -897,7 +902,7 @@ export default function App() {
                 ) : filteredMatches.map(m => (
                   <div key={m.id} className="list-item">
                     <div className="list-item-left">
-                      <div className="list-nick">{m.nickname}</div>
+                      <div className="list-nick" style={{cursor:"pointer"}} onClick={() => { setCloudUser(m); setScreen("cloud"); }}>{m.nickname}</div>
                       <div className="list-sub"><span>{m.common}</span> statements in common</div>
                     </div>
                     <div className="list-right">
