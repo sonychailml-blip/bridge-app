@@ -75,6 +75,8 @@ export default function App() {
   const [notifKey, setNotifKey] = useState(0);
   const [adminStats, setAdminStats] = useState({ users: 0, statements: 0, chats: 0 });
   const [isBlocked, setIsBlocked] = useState(false);
+  const [profileIncomplete, setProfileIncomplete] = useState(false);
+  const [completeNickInput, setCompleteNickInput] = useState("");
   const chatEndRef = useRef(null);
   const feedEndRef = useRef(null);
 
@@ -90,6 +92,9 @@ export default function App() {
           setNickname(snap.data().nickname);
           setClicked(new Set(snap.data().clicked || []));
           setIsBlocked(snap.data().blocked === true);
+        } else {
+          // profile missing — ask user to complete registration
+          setProfileIncomplete(true);
         }
       } else {
         setUser(null);
@@ -141,6 +146,21 @@ export default function App() {
         setNickname(nick);
       }
     } catch (e) { setAuthError(e.message.replace("Firebase: ", "")); }
+  };
+
+  const handleCompleteProfile = async () => {
+    if (completeNickInput.trim().length < 2) return;
+    try {
+      await setDoc(doc(db, "users", user.uid), {
+        nickname: completeNickInput.trim(), clicked: [], ts: serverTimestamp(), blocked: false,
+      });
+      setNickname(completeNickInput.trim());
+      setProfileIncomplete(false);
+    } catch (e) {
+      // retry on next login
+      await signOut(auth);
+      setProfileIncomplete(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -463,6 +483,34 @@ export default function App() {
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,letterSpacing:2,fontSize:12,textTransform:"uppercase",color:"#bbb"}}>
       loading
     </div>
+  );
+
+  if (user && profileIncomplete) return (
+    <>
+      <style>{FONT}</style>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,padding:"48px 32px",textAlign:"center",maxWidth:480,margin:"0 auto"}}>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:36,fontWeight:400,marginBottom:12}}>Bridge</div>
+        <div style={{fontSize:13,color:"#999",lineHeight:2,marginBottom:40}}>One last step —<br/>choose your nickname.</div>
+        <input
+          style={{width:"100%",border:"none",borderBottom:"1px solid #111",padding:"10px 0",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:18,outline:"none",textAlign:"center",background:"transparent",color:"#111",letterSpacing:1,marginBottom:32}}
+          placeholder="nickname"
+          value={completeNickInput}
+          onChange={e => setCompleteNickInput(e.target.value)}
+          onKeyDown={e => e.key==="Enter" && handleCompleteProfile()}
+          autoFocus
+        />
+        <button
+          onClick={handleCompleteProfile}
+          disabled={completeNickInput.trim().length < 2}
+          style={{background:"#111",color:"#fff",border:"none",padding:"14px 48px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:13,letterSpacing:3,textTransform:"uppercase",cursor:"pointer",opacity:completeNickInput.trim().length < 2 ? 0.3 : 1}}
+        >
+          Enter
+        </button>
+        <button onClick={handleLogout} style={{marginTop:20,background:"none",border:"none",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#ccc",cursor:"pointer"}}>
+          Sign out
+        </button>
+      </div>
+    </>
   );
 
   if (user && isBlocked) return (
