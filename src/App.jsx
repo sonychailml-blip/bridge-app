@@ -595,7 +595,7 @@ export default function App() {
         .list-overlap span{color:#bbb;}
 
         /* CHAT BODY */
-        .chat-body{display:flex;flex-direction:column;position:fixed;top:93px;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;}
+        .chat-body{display:flex;flex-direction:column;height:calc(100vh - 93px);}
         .chat-msgs{flex:1;overflow-y:auto;padding:24px 24px 16px;display:flex;flex-direction:column;gap:16px;}
         .msg{max-width:78%;line-height:1.55;}
         .msg.you{align-self:flex-end;text-align:right;}
@@ -956,7 +956,7 @@ export default function App() {
             {/* CHAT */}
             {screen==="chat" && activeChat && (
               <div className="chat-body">
-                <div className="chat-msgs">
+                <div className="chat-msgs" style={{flex:1,overflowY:"auto",padding:"24px 24px 16px",display:"flex",flexDirection:"column",gap:16}}>
                   {chatMessages.map((msg, i) => (
                     <div key={i} className={`msg ${msg.from===user.uid?"you":"them"}`}>
                       {msg.from!==user.uid && <div className="msg-sender">{msg.fromNick}</div>}
