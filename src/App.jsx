@@ -52,6 +52,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [newStatement, setNewStatement] = useState("");
   const [suggestions, setSuggestions] = useState([]);
+  const suggestionsRef = useRef(null);
   const [lastStmtDoc, setLastStmtDoc] = useState(null);
   const [searchResults, setSearchResults] = useState(null); // null = not searching
   const [searchLoading, setSearchLoading] = useState(false);
@@ -324,6 +325,21 @@ export default function App() {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
+
+  // close suggestions on click outside
+  useEffect(() => {
+    const handler = (e) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(e.target)) {
+        setSuggestions([]);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("touchstart", handler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("touchstart", handler);
+    };
+  }, []);
 
   // ACTIONS
   const toggleClick = async (id) => {
@@ -866,11 +882,8 @@ export default function App() {
                     onKeyDown={e => { if(e.key==="Enter") { addStatement(); setSuggestions([]); } }}
                   />
                   {suggestions.length > 0 && (
-                    <div style={{borderTop:"1px solid #f0f0f0",marginTop:8}}>
-                      <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0 4px"}}>
-                        <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>similar statements</div>
-                        <button onClick={() => setSuggestions([])} style={{background:"none",border:"none",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#ccc",cursor:"pointer",fontFamily:"Lato,sans-serif",fontWeight:300}}>close</button>
-                      </div>
+                    <div ref={suggestionsRef} style={{borderTop:"1px solid #f0f0f0",marginTop:8}}>
+                      <div style={{padding:"8px 0 4px",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>similar statements</div>
                       <div style={{maxHeight:280,overflowY:"auto"}}>
                       {suggestions.map(s => (
                         <div key={s.id}
