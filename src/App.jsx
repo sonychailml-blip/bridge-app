@@ -582,8 +582,8 @@ export default function App() {
 
         /* NAV — always visible */
         .nav{padding:0 24px;position:sticky;top:0;background:#fff;z-index:10;width:100%;max-width:480px;box-sizing:border-box;}
-        .nav-top{display:flex;align-items:center;justify-content:space-between;padding:18px 0 0;height:46px;}
-        .nav-logo{font-family:'Playfair Display',serif;font-size:28px;font-weight:400;cursor:pointer;position:relative;flex-shrink:0;letter-spacing:4px;}
+        .nav-top{display:flex;align-items:center;justify-content:space-between;padding:18px 0 0;height:46px;position:relative;}
+        .nav-logo{font-family:'Playfair Display',serif;font-size:28px;font-weight:400;cursor:pointer;position:absolute;left:50%;transform:translateX(-50%);letter-spacing:4px;}
         .nav-nick{font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;flex-shrink:0;}
         .nav-tabs{display:flex;gap:0;padding:12px 0 0;border-bottom:1px solid #f0f0f0;}
         .nav-tab{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;color:#bbb;cursor:pointer;padding-bottom:12px;border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s;background:none;border-left:none;border-right:none;border-top:none;font-family:'Lato',sans-serif;font-weight:300;display:flex;align-items:center;gap:6px;margin-right:20px;white-space:nowrap;}
@@ -788,10 +788,11 @@ export default function App() {
           <div className={screen==="chat" ? "chat-wrapper" : ""}>
             <div className="nav">
               <div className="nav-top">
+                <div className="nav-nick" style={{visibility:"hidden"}}>{nickname}</div>
                 <div className="nav-logo" onClick={(e) => { e.stopPropagation(); setShowLogoutMenu(v => !v); }}>
                   H
                   {showLogoutMenu && (
-                    <div className="logout-menu">
+                    <div className="logout-menu" style={{left:"50%",transform:"translateX(-50%)"}}>
                       <div className="logout-item" style={{color:"#ccc",cursor:"default",fontSize:10}}>{nickname}</div>
                       <button className="logout-item" onClick={handleLogout}>Sign out</button>
                     </div>
