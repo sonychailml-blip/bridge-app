@@ -651,7 +651,7 @@ export default function App() {
         .section-sub{font-family:'Playfair Display',serif;font-size:13px;font-style:italic;color:#999;padding-bottom:16px;}
         .list-item{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #f5f5f5;min-height:64px;}
         .list-item-left{flex:1;min-width:0;}
-        .list-nick{font-size:15px;font-weight:300;color:#111;display:flex;align-items:center;gap:8px;}.list-nick[style*='cursor']{border-bottom:1px solid #e0e0e0;display:inline-flex;}
+        .list-nick{font-size:15px;font-weight:300;color:#111;display:flex;align-items:center;gap:8px;}
         .unread-dot{width:5px;height:5px;border-radius:50%;background:#111;flex-shrink:0;}
         .list-sub{font-size:11px;letter-spacing:1px;text-transform:uppercase;color:#bbb;margin-top:3px;}
         .list-sub span{color:#111;font-weight:400;}
@@ -729,6 +729,39 @@ export default function App() {
           </div>
         )}
 
+        {/* CLOUD OVERLAY */}
+        {cloudUser && user && (
+          <div style={{position:"fixed",inset:0,background:"rgba(255,255,255,0.97)",zIndex:30,overflowY:"auto",maxWidth:480,margin:"0 auto",left:"50%",transform:"translateX(-50%)",width:"100%"}}>
+            <div style={{padding:"20px 24px 0",display:"flex",alignItems:"baseline",justifyContent:"space-between",borderBottom:"1px solid #f0f0f0"}}>
+              <div style={{fontFamily:"Playfair Display,serif",fontSize:20,fontStyle:"italic"}}>
+                {cloudUser === "me" ? nickname : cloudUser?.nickname}
+              </div>
+              <button onClick={() => setCloudUser(null)} style={{background:"none",border:"none",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#bbb",cursor:"pointer",paddingBottom:14}}>
+                close
+              </button>
+            </div>
+            <div style={{padding:"28px 24px 80px",display:"flex",flexWrap:"wrap",gap:"10px 14px",alignItems:"baseline"}}>
+              {(() => {
+                const targetClicked = cloudUser === "me" ? [...clicked] : cloudUser?.clicked || [];
+                const words = getCloud(cloudUser === "me" ? user?.uid : cloudUser?.id, targetClicked);
+                if (words.length === 0) return <div style={{fontSize:13,color:"#ccc",lineHeight:2}}>no statements yet</div>;
+                return words.map(s => (
+                  <span key={s.id}
+                    style={{
+                      fontFamily:"Playfair Display,serif",
+                      fontStyle: clicked.has(s.id) ? "italic" : "normal",
+                      fontSize: s.size + "px",
+                      color: clicked.has(s.id) ? "#111" : "#555",
+                      lineHeight: 1.4,
+                    }}>
+                    {s.text}
+                  </span>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
+
         {/* AUTH */}
         {!user && authScreen === "login" && (
           <div className="auth">
@@ -785,7 +818,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="nav-nick" style={{cursor:"pointer"}} onClick={() => { setCloudUser("me"); setScreen("cloud"); }}>{nickname}</div>
+                <div className="nav-nick" style={{cursor:"pointer",borderBottom:"1px solid #e8e8e8"}} onClick={() => { setCloudUser("me"); setScreen("cloud"); }}>{nickname}</div>
               </div>
               <div className="nav-tabs">
                 <button className={`nav-tab ${screen==="feed"?"active":""}`} onClick={() => { setScreen("feed"); setSearchQuery(""); }}>
@@ -838,7 +871,7 @@ export default function App() {
             )}
 
             {/* search bar — not in chat */}
-            {screen !== "chat" && screen !== "cloud" && (
+            {screen !== "chat" && (
               <div className="search-bar">
                 <input className="search-input"
                   placeholder={screen==="feed" ? "search statements…" : screen==="matches" ? "search by nickname…" : "search conversations…"}
@@ -902,7 +935,9 @@ export default function App() {
                 ) : filteredMatches.map(m => (
                   <div key={m.id} className="list-item">
                     <div className="list-item-left">
-                      <div className="list-nick" style={{cursor:"pointer"}} onClick={() => { setCloudUser(m); setScreen("cloud"); }}>{m.nickname}</div>
+                      <div className="list-nick">
+                        <span style={{cursor:"pointer",borderBottom:"1px solid #e8e8e8"}} onClick={() => { setCloudUser(m); setScreen("cloud"); }}>{m.nickname}</span>
+                      </div>
                       <div className="list-sub"><span>{m.common}</span> statements in common</div>
                     </div>
                     <div className="list-right">
@@ -1036,38 +1071,7 @@ export default function App() {
               </div>
             )}
 
-            {/* CLOUD */}
-            {screen==="cloud" && (
-              <div className="cloud-section">
-                <div className="cloud-header">
-                  <div className="cloud-name">
-                    {cloudUser === "me" ? nickname : cloudUser?.nickname}
-                  </div>
-                  <button className="cloud-back" onClick={() => setScreen(cloudUser === "me" ? "feed" : "matches")}>
-                    ← back
-                  </button>
-                </div>
-                {(() => {
-                  const targetClicked = cloudUser === "me"
-                    ? [...clicked]
-                    : cloudUser?.clicked || [];
-                  const words = getCloud(cloudUser === "me" ? user.uid : cloudUser?.id, targetClicked);
-                  if (words.length === 0) return (
-                    <div className="cloud-empty">no statements yet</div>
-                  );
-                  return (
-                    <div className="cloud-words">
-                      {words.map(s => (
-                        <span key={s.id} className={`cloud-word ${clicked.has(s.id) ? "italic" : ""}`}
-                          style={{fontSize: s.size + "px"}}>
-                          {s.text}
-                        </span>
-                      ))}
-                    </div>
-                  );
-                })()}
-              </div>
-            )}
+
 
             {/* CHAT */}
             {screen==="chat" && activeChat && (
