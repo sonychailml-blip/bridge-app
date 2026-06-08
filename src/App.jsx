@@ -136,6 +136,16 @@ export default function App() {
     } catch (e) { setAuthError(e.message.replace("Firebase: ", "")); }
   };
 
+  const handleForgotPassword = async () => {
+    if (!email.trim()) { setAuthError("Enter your email first"); return; }
+    try {
+      const { sendPasswordResetEmail } = await import("firebase/auth");
+      await sendPasswordResetEmail(auth, email.trim());
+      setAuthError("");
+      setAuthScreen("resetSent");
+    } catch (e) { setAuthError(e.message.replace("Firebase: ", "")); }
+  };
+
   const handleGoogle = async () => {
     setAuthError("");
     try {
@@ -654,12 +664,12 @@ export default function App() {
         .msg.you{align-self:flex-end;text-align:right;}
         .msg.them{align-self:flex-start;}
         .msg-text{font-size:14px;font-weight:300;padding:10px 14px;display:inline-block;}
-        .msg.you .msg-text{background:#111;color:#fff;}
+        .msg.you .msg-text{background:#f0f0f0;color:#111;text-align:left;}
         .msg.them .msg-text{background:#f5f5f5;color:#111;}
         .msg-sender{font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:#ccc;margin-bottom:4px;}
         .chat-input-row{padding:12px 24px 24px;border-top:1px solid #f0f0f0;display:flex;gap:12px;align-items:flex-end;flex-shrink:0;}
-        .chat-input{flex:1;border:none;border-bottom:1px solid #e0e0e0;padding:8px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:14px;outline:none;background:#fff;resize:none;line-height:1.5;color:#111;-webkit-text-fill-color:#111;}
-        .chat-input::placeholder{color:#ccc;-webkit-text-fill-color:#ccc;}
+        .chat-input{flex:1;border:none;border-bottom:1px solid #e0e0e0;padding:8px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:14px;outline:none;background:#fff;resize:none;line-height:1.5;color:#111 !important;-webkit-text-fill-color:#111 !important;}
+        .chat-input::placeholder{color:#ccc;-webkit-text-fill-color:#ccc !important;}
         .send-btn{background:#111;color:#fff;border:none;width:32px;height:32px;cursor:pointer;font-size:14px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s;}
         .send-btn:hover{opacity:.7;}
 
@@ -711,6 +721,7 @@ export default function App() {
             <button className="auth-btn" onClick={handleLogin}>Sign in</button>
             <button className="auth-btn secondary" onClick={handleGoogle}>Continue with Google</button>
             <div className="auth-switch">No account? <span onClick={() => { setAuthScreen("register"); setAuthError(""); }}>Create one</span></div>
+            <div className="auth-switch" style={{marginTop:8}}>Forgot password? <span onClick={handleForgotPassword}>Reset it</span></div>
             <div className="auth-notice">
               <strong>Bridge is open by design.</strong><br/>
               Your statements and nickname are visible to everyone.<br/>
@@ -731,6 +742,17 @@ export default function App() {
             <button className="auth-btn" onClick={handleRegister}>Create account</button>
             <button className="auth-btn secondary" onClick={handleGoogle}>Continue with Google</button>
             <div className="auth-switch">Have an account? <span onClick={() => { setAuthScreen("login"); setAuthError(""); }}>Sign in</span></div>
+          </div>
+        )}
+
+        {!user && authScreen === "resetSent" && (
+          <div className="auth">
+            <div className="auth-logo">Bridge</div>
+            <div className="verify-text">
+              Check your email —<br/>we sent a password reset link.<br/><br/>
+              After resetting, come back and sign in.
+            </div>
+            <button className="auth-btn" onClick={() => { setAuthScreen("login"); setAuthError(""); }}>Go to sign in</button>
           </div>
         )}
 
