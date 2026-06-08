@@ -519,7 +519,7 @@ export default function App() {
     <>
       <style>{FONT}</style>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,padding:"48px 32px",textAlign:"center",maxWidth:480,margin:"0 auto"}}>
-        <div style={{fontFamily:"Playfair Display,serif",fontSize:36,fontWeight:400,marginBottom:12}}>Bridge</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:36,fontWeight:400,marginBottom:12}}>ii</div>
         <div style={{fontSize:13,color:"#999",lineHeight:2,marginBottom:40}}>One last step —<br/>choose your nickname.</div>
         <input
           style={{width:"100%",border:"none",borderBottom:"1px solid #111",padding:"10px 0",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:18,outline:"none",textAlign:"center",background:"transparent",color:"#111",letterSpacing:1,marginBottom:32}}
@@ -547,7 +547,7 @@ export default function App() {
     <>
       <style>{FONT}</style>
       <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,padding:"48px 32px",textAlign:"center",maxWidth:480,margin:"0 auto"}}>
-        <div style={{fontFamily:"Playfair Display,serif",fontSize:36,fontWeight:400,marginBottom:16}}>Bridge</div>
+        <div style={{fontFamily:"Playfair Display,serif",fontSize:36,fontWeight:400,marginBottom:16}}>ii</div>
         <div style={{fontSize:13,color:"#999",lineHeight:2,marginBottom:32}}>Your account has been suspended.<br/>If you think this is a mistake,<br/>please contact us.</div>
         <button onClick={handleLogout} style={{background:"none",border:"1px solid #ddd",padding:"10px 24px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#999"}}>Sign out</button>
       </div>
@@ -711,7 +711,7 @@ export default function App() {
             <div className="modal">
               {modal.type === "report" && <>
                 <div className="modal-title">Report this statement?</div>
-                <div className="modal-text">It will be hidden if others report it too.<br/>Thank you for keeping Bridge safe.</div>
+                <div className="modal-text">It will be hidden if others report it too.<br/>Thank you for keeping ii safe.</div>
                 <div className="modal-actions">
                   <button className="modal-btn" onClick={() => setModal(null)}>Cancel</button>
                   <button className="modal-btn danger" onClick={confirmReport}>Report</button>
@@ -732,7 +732,7 @@ export default function App() {
         {/* AUTH */}
         {!user && authScreen === "login" && (
           <div className="auth">
-            <div className="auth-logo">Bridge</div>
+            <div className="auth-logo">ii</div>
             <div className="auth-tagline">find your people</div>
             <input className="auth-input" placeholder="email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
             <input className="auth-input" placeholder="password" type="password" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key==="Enter" && handleLogin()} />
@@ -742,7 +742,7 @@ export default function App() {
             <div className="auth-switch">No account? <span onClick={() => { setAuthScreen("register"); setAuthError(""); }}>Create one</span></div>
             <div className="auth-switch" style={{marginTop:8}}>Forgot password? <span onClick={handleForgotPassword}>Reset it</span></div>
             <div className="auth-notice">
-              <strong>Bridge is open by design.</strong><br/>
+              <strong>ii is open by design.</strong><br/>
               Your statements and nickname are visible to everyone.<br/>
               For privacy, take conversations to your own messengers.
             </div>
@@ -751,7 +751,7 @@ export default function App() {
 
         {!user && authScreen === "register" && (
           <div className="auth">
-            <div className="auth-logo">Bridge</div>
+            <div className="auth-logo">ii</div>
             <div className="auth-tagline">create account</div>
             <input className="auth-input" placeholder="nickname (visible to others)" value={nicknameInput} onChange={e => setNicknameInput(e.target.value)} />
             <input className="auth-input" placeholder="email" type="email" value={email} onChange={e => setEmail(e.target.value)} />
@@ -766,7 +766,7 @@ export default function App() {
 
         {!user && authScreen === "resetSent" && (
           <div className="auth">
-            <div className="auth-logo">Bridge</div>
+            <div className="auth-logo">ii</div>
             <div className="verify-text">
               Check your email —<br/>we sent a password reset link.<br/><br/>
               After resetting, come back and sign in.
@@ -777,7 +777,7 @@ export default function App() {
 
         {!user && authScreen === "verify" && (
           <div className="auth">
-            <div className="auth-logo">Bridge</div>
+            <div className="auth-logo">ii</div>
             <div className="verify-text">Check your email and confirm your address.<br/><br/>Then come back and sign in.</div>
             <button className="auth-btn" onClick={() => setAuthScreen("login")}>Go to sign in</button>
           </div>
@@ -789,7 +789,7 @@ export default function App() {
             <div className="nav">
               <div className="nav-top">
                 <div className="nav-logo" onClick={(e) => { e.stopPropagation(); setShowLogoutMenu(v => !v); }}>
-                  Bridge
+                  ii
                   {showLogoutMenu && (
                     <div className="logout-menu">
                       <div className="logout-item" style={{color:"#ccc",cursor:"default",fontSize:10}}>{nickname}</div>
