@@ -77,7 +77,7 @@ export default function App() {
   const [isBlocked, setIsBlocked] = useState(false);
   const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [completeNickInput, setCompleteNickInput] = useState("");
-  const [cloudUser, setCloudUser] = useState(null); // null = my cloud, object = other user's cloud
+
   const chatEndRef = useRef(null);
   const feedEndRef = useRef(null);
 
@@ -463,25 +463,6 @@ export default function App() {
     return () => clearTimeout(timer);
   }, [searchQuery, screen, user]);
 
-  // compute word cloud — top 30 most unique statements for a user
-  const getCloud = (targetUserId, targetClicked) => {
-    const userClickedSet = new Set(targetClicked || []);
-    const filtered = statements
-      .filter(s => userClickedSet.has(s.id))
-      .filter(s => s.text.length <= 60) // skip very long statements
-      .sort((a, b) => (a.clicks || 1) - (b.clicks || 1)) // rarest first
-      .slice(0, 30);
-    if (filtered.length === 0) return [];
-    const minClicks = filtered[0].clicks || 1;
-    const maxClicks = filtered[filtered.length - 1].clicks || 1;
-    return filtered.map(s => ({
-      ...s,
-      size: maxClicks === minClicks
-        ? 17
-        : Math.round(13 + (1 - (s.clicks - minClicks) / (maxClicks - minClicks)) * 14)
-    }));
-  };
-
   // smart sort feed
   const matchUserIds = new Set(matches.map(m => m.id));
   const blockedUserIds = new Set(allUsers.filter(u => u.blocked).map(u => u.id));
@@ -685,16 +666,6 @@ export default function App() {
         .empty{padding:64px 0;text-align:center;}
         .empty p{font-size:13px;color:#ccc;line-height:2;}
 
-        /* CLOUD */
-        .cloud-section{padding:0 24px 100px;}
-        .cloud-header{padding:20px 0 16px;border-bottom:1px solid #f0f0f0;display:flex;align-items:baseline;justify-content:space-between;}
-        .cloud-name{font-family:'Playfair Display',serif;font-size:22px;font-style:italic;}
-        .cloud-back{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#bbb;cursor:pointer;padding:0;transition:color .15s;}
-        .cloud-back:hover{color:#111;}
-        .cloud-words{padding:32px 0;display:flex;flex-wrap:wrap;gap:12px 16px;align-items:baseline;}
-        .cloud-word{font-family:'Playfair Display',serif;font-weight:400;color:#111;line-height:1.3;transition:opacity .15s;}
-        .cloud-word.italic{font-style:italic;}
-        .cloud-empty{font-size:13px;color:#ccc;padding:48px 0;text-align:center;line-height:2;}
 
         .notif{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#111;color:#fff;font-size:11px;letter-spacing:2px;text-transform:uppercase;padding:10px 20px;pointer-events:none;animation:fade 2.2s ease forwards;white-space:nowrap;z-index:100;}
         @keyframes fade{0%{opacity:0;transform:translateX(-50%) translateY(8px);}12%{opacity:1;transform:translateX(-50%) translateY(0);}75%{opacity:1;}100%{opacity:0;}}
@@ -725,39 +696,6 @@ export default function App() {
                   <button className="modal-btn danger" onClick={() => confirmReset(modal.fromCommon)}>Clear map</button>
                 </div>
               </>}
-            </div>
-          </div>
-        )}
-
-        {/* CLOUD OVERLAY */}
-        {cloudUser && user && (
-          <div style={{position:"fixed",inset:0,background:"rgba(255,255,255,0.97)",zIndex:30,overflowY:"auto",maxWidth:480,margin:"0 auto",left:"50%",transform:"translateX(-50%)",width:"100%"}}>
-            <div style={{padding:"20px 24px 0",display:"flex",alignItems:"baseline",justifyContent:"space-between",borderBottom:"1px solid #f0f0f0"}}>
-              <div style={{fontFamily:"Playfair Display,serif",fontSize:20,fontStyle:"italic"}}>
-                {cloudUser === "me" ? nickname : cloudUser?.nickname}
-              </div>
-              <button onClick={() => setCloudUser(null)} style={{background:"none",border:"none",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#bbb",cursor:"pointer",paddingBottom:14}}>
-                close
-              </button>
-            </div>
-            <div style={{padding:"28px 24px 80px",display:"flex",flexWrap:"wrap",gap:"10px 14px",alignItems:"baseline"}}>
-              {(() => {
-                const targetClicked = cloudUser === "me" ? [...clicked] : cloudUser?.clicked || [];
-                const words = getCloud(cloudUser === "me" ? user?.uid : cloudUser?.id, targetClicked);
-                if (words.length === 0) return <div style={{fontSize:13,color:"#ccc",lineHeight:2}}>no statements yet</div>;
-                return words.map(s => (
-                  <span key={s.id}
-                    style={{
-                      fontFamily:"Playfair Display,serif",
-                      fontStyle: clicked.has(s.id) ? "italic" : "normal",
-                      fontSize: s.size + "px",
-                      color: clicked.has(s.id) ? "#111" : "#555",
-                      lineHeight: 1.4,
-                    }}>
-                    {s.text}
-                  </span>
-                ));
-              })()}
             </div>
           </div>
         )}
@@ -818,7 +756,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="nav-nick" style={{cursor:"pointer",borderBottom:"1px solid #e8e8e8"}} onClick={() => { setCloudUser("me"); setScreen("cloud"); }}>{nickname}</div>
+                <div className="nav-nick">{nickname}</div>
               </div>
               <div className="nav-tabs">
                 <button className={`nav-tab ${screen==="feed"?"active":""}`} onClick={() => { setScreen("feed"); setSearchQuery(""); }}>
@@ -935,9 +873,7 @@ export default function App() {
                 ) : filteredMatches.map(m => (
                   <div key={m.id} className="list-item">
                     <div className="list-item-left">
-                      <div className="list-nick">
-                        <span style={{cursor:"pointer",borderBottom:"1px solid #e8e8e8"}} onClick={() => { setCloudUser(m); setScreen("cloud"); }}>{m.nickname}</span>
-                      </div>
+                      <div className="list-nick">{m.nickname}</div>
                       <div className="list-sub"><span>{m.common}</span> statements in common</div>
                     </div>
                     <div className="list-right">
