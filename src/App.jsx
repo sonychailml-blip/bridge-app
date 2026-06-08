@@ -51,6 +51,7 @@ export default function App() {
   const [reported, setReported] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [newStatement, setNewStatement] = useState("");
+  const [suggestions, setSuggestions] = useState([]);
   const [lastStmtDoc, setLastStmtDoc] = useState(null);
   const [searchResults, setSearchResults] = useState(null); // null = not searching
   const [searchLoading, setSearchLoading] = useState(false);
@@ -480,6 +481,8 @@ export default function App() {
     .filter(s => !reported.has(s.id))
     .filter(s => !blockedUserIds.has(s.authorId))
     .sort((a, b) => {
+      // if searching — sort by popularity first
+      if (searchQuery.trim()) return (b.clicks||0) - (a.clicks||0);
       const aM = matchUserIds.has(a.authorId), bM = matchUserIds.has(b.authorId);
       if (aM && !bM) return -1;
       if (!aM && bM) return 1;
@@ -844,8 +847,40 @@ export default function App() {
               <div className="feed-section">
                 <div className="add-statement">
                   <input className="add-input" placeholder="write a statement about yourself…"
-                    value={newStatement} onChange={e => setNewStatement(e.target.value)}
-                    onKeyDown={e => e.key==="Enter" && addStatement()} />
+                    value={newStatement}
+                    onChange={e => {
+                      const val = e.target.value;
+                      setNewStatement(val);
+                      if (val.trim().length > 2) {
+                        const lower = val.toLowerCase();
+                        const found = statements
+                          .filter(s => s.text.toLowerCase().includes(lower) || lower.split(" ").some(w => w.length > 2 && s.text.toLowerCase().includes(w)))
+                          .filter(s => s.text.toLowerCase() !== val.toLowerCase())
+                          .sort((a, b) => (b.clicks||0) - (a.clicks||0))
+                          .slice(0, 4);
+                        setSuggestions(found);
+                      } else {
+                        setSuggestions([]);
+                      }
+                    }}
+                    onKeyDown={e => { if(e.key==="Enter") { addStatement(); setSuggestions([]); } }}
+                    onBlur={() => setTimeout(() => setSuggestions([]), 200)}
+                  />
+                  {suggestions.length > 0 && (
+                    <div style={{borderTop:"1px solid #f0f0f0",marginTop:8}}>
+                      <div style={{fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#ccc",padding:"8px 0 4px"}}>similar statements</div>
+                      {suggestions.map(s => (
+                        <div key={s.id}
+                          style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"8px 0",borderBottom:"1px solid #f8f8f8",cursor:"pointer",gap:12}}
+                          onMouseDown={() => { toggleClick(s.id); setNewStatement(""); setSuggestions([]); }}
+                        >
+                          <div style={{fontSize:13,color:"#111",fontFamily:"Playfair Display,serif",fontStyle:"italic",flex:1}}>{s.text}</div>
+                          <div style={{fontSize:10,color:"#ccc",flexShrink:0}}>{(s.clicks||0).toLocaleString()}</div>
+                          <div style={{width:7,height:7,borderRadius:"50%",border:"1px solid #ccc",flexShrink:0,background:clicked.has(s.id)?"#111":"transparent",borderColor:clicked.has(s.id)?"#111":"#ccc"}}/>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   <div className="add-row">
                     <button className="reset-btn" onClick={() => setModal({type:"reset",fromCommon:false})}>Reset map</button>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
