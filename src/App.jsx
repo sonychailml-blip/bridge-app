@@ -73,6 +73,13 @@ export default function App() {
   const [showCommon, setShowCommon] = useState(false);
   const [modal, setModal] = useState(null);
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
+  const [pendingRemovals, setPendingRemovals] = useState(new Set()); // temp removals while panel open
+  const [locationInput, setLocationInput] = useState("");
+  const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [savedLocation, setSavedLocation] = useState(null); // {name, lat, lng}
+  const [useLocation, setUseLocation] = useState(false);
+  const profilePanelRef = useRef(null);
   const [notification, setNotification] = useState(null);
   const [notifKey, setNotifKey] = useState(0);
   const [adminStats, setAdminStats] = useState({ users: 0, statements: 0, chats: 0 });
@@ -95,6 +102,11 @@ export default function App() {
           setNickname(snap.data().nickname);
           setClicked(new Set(snap.data().clicked || []));
           setIsBlocked(snap.data().blocked === true);
+          if (snap.data().location) {
+            setSavedLocation(snap.data().location);
+            setLocationInput(snap.data().location.name);
+            setUseLocation(true);
+          }
         } else {
           // profile missing — ask user to complete registration
           setProfileIncomplete(true);
@@ -174,6 +186,56 @@ export default function App() {
       await signOut(auth);
       setProfileIncomplete(false);
     }
+  };
+
+  const searchLocation = async (query) => {
+    if (query.length < 2) { setLocationSuggestions([]); return; }
+    try {
+      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&featuretype=city,town`);
+      const data = await res.json();
+      setLocationSuggestions(data.map(d => ({
+        name: d.display_name.split(',').slice(0,2).join(',').trim(),
+        full: d.display_name,
+        lat: parseFloat(d.lat),
+        lng: parseFloat(d.lon),
+      })));
+    } catch(e) { setLocationSuggestions([]); }
+  };
+
+  const selectLocation = async (loc) => {
+    setSavedLocation(loc);
+    setLocationInput(loc.name);
+    setLocationSuggestions([]);
+    setUseLocation(true);
+    // save to Firestore
+    await updateDoc(doc(db, "users", user.uid), {
+      location: { name: loc.name, lat: loc.lat, lng: loc.lng }
+    });
+  };
+
+  const getDistanceKm = (lat1, lng1, lat2, lng2) => {
+    const R = 6371;
+    const dLat = (lat2-lat1) * Math.PI/180;
+    const dLng = (lng2-lng1) * Math.PI/180;
+    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
+    return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
+  };
+
+  const closeProfile = () => {
+    // apply pending removals
+    if (pendingRemovals.size > 0) {
+      const newClicked = new Set([...clicked].filter(id => !pendingRemovals.has(id)));
+      setClicked(newClicked);
+      pendingRemovals.forEach(async id => {
+        try {
+          await updateDoc(doc(db, "users", user.uid), { clicked: arrayRemove(id) });
+          await updateDoc(doc(db, "statements", id), { clicks: increment(-1) });
+        } catch(e) {}
+      });
+      setPendingRemovals(new Set());
+    }
+    setShowProfile(false);
+    setLocationSuggestions([]);
   };
 
   const handleLogout = async () => {
@@ -268,11 +330,26 @@ export default function App() {
   // compute matches + new match dot
   useEffect(() => {
     if (clicked.size === 0) { setMatches([]); return; }
-    const computed = allUsers.map(u => {
-      const uc = new Set(u.clicked || []);
-      const common = [...clicked].filter(id => uc.has(id));
-      return { ...u, common: common.length, commonIds: common };
-    }).filter(u => u.common > 0).sort((a, b) => b.common - a.common);
+    const computed = allUsers
+      .filter(u => !u.blocked)
+      .map(u => {
+        const uc = new Set(u.clicked || []);
+        const common = [...clicked].filter(id => uc.has(id));
+        let distKm = null;
+        if (useLocation && savedLocation && u.location) {
+          distKm = getDistanceKm(savedLocation.lat, savedLocation.lng, u.location.lat, u.location.lng);
+        }
+        return { ...u, common: common.length, commonIds: common, distKm };
+      }).filter(u => u.common > 0)
+      .sort((a, b) => {
+        if (useLocation && a.distKm !== null && b.distKm !== null) {
+          // combine score: distance + overlap
+          const scoreA = a.common * 10 - (a.distKm || 0) * 0.01;
+          const scoreB = b.common * 10 - (b.distKm || 0) * 0.01;
+          return scoreB - scoreA;
+        }
+        return b.common - a.common;
+      });
     setMatches(computed);
     if (computed.length > prevMatchCount && prevMatchCount > 0) {
       setNewMatchDot(true);
@@ -693,6 +770,36 @@ export default function App() {
         .send-btn:hover{opacity:.7;}
 
         .empty{padding:64px 0;text-align:center;}
+
+        /* PROFILE PANEL */
+        .profile-panel{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(255,255,255,0.97);z-index:25;overflow-y:auto;padding:20px 24px 48px;max-width:480px;margin:0 auto;}
+        .profile-panel-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid #f0f0f0;margin-bottom:0;}
+        .profile-panel-title{font-family:'Playfair Display',serif;font-size:18px;font-style:italic;}
+        .profile-section{padding:16px 0;border-bottom:1px solid #f5f5f5;}
+        .profile-section-label{font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#ccc;margin-bottom:10px;}
+        .loc-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:6px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:14px;outline:none;color:#111;background:transparent;}
+        .loc-input::placeholder{color:#ccc;}
+        .loc-suggestions{margin-top:4px;border:1px solid #f0f0f0;}
+        .loc-suggestion{padding:10px 12px;font-size:13px;color:#111;border-bottom:1px solid #f8f8f8;cursor:pointer;}
+        .loc-suggestion:last-child{border-bottom:none;}
+        .loc-current{font-size:12px;color:#999;margin-top:8px;display:flex;align-items:center;gap:6px;}
+        .loc-dot{width:5px;height:5px;border-radius:50%;background:#111;flex-shrink:0;}
+        .loc-toggle-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
+        .loc-toggle-label{font-size:11px;color:#999;}
+        .loc-toggle{width:36px;height:20px;background:#111;border-radius:10px;position:relative;cursor:pointer;flex-shrink:0;transition:background .2s;}
+        .loc-toggle.off{background:#e0e0e0;}
+        .loc-toggle::after{content:'';position:absolute;width:14px;height:14px;background:#fff;border-radius:50%;top:3px;right:3px;transition:right .2s;}
+        .loc-toggle.off::after{right:19px;}
+        .profile-stmt{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f8f8f8;gap:12px;}
+        .profile-stmt-text{font-size:14px;color:#111;line-height:1.4;flex:1;}
+        .profile-stmt-text.italic{font-family:'Playfair Display',serif;font-style:italic;}
+        .profile-stmt-text.removed{opacity:0.25;text-decoration:line-through;}
+        .profile-stmt-meta{font-size:10px;color:#ccc;margin-top:2px;letter-spacing:.5px;text-transform:uppercase;}
+        .profile-stmt-dot{width:8px;height:8px;border-radius:50%;border:1px solid #ccc;cursor:pointer;flex-shrink:0;transition:all .15s;}
+        .profile-stmt-dot.on{background:#111;border-color:#111;}
+        .profile-reset{padding:20px 0 0;text-align:center;}
+        .profile-reset-btn{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;cursor:pointer;transition:color .15s;}
+        .profile-reset-btn:hover{color:#111;}
         .empty p{font-size:13px;color:#ccc;line-height:2;}
 
 
@@ -703,7 +810,100 @@ export default function App() {
         ::-webkit-scrollbar-thumb{background:#e0e0e0;}
       `}</style>
 
-      <div className="app" onClick={() => showLogoutMenu && setShowLogoutMenu(false)}>
+      <div className="app" onClick={() => { if(showLogoutMenu) setShowLogoutMenu(false); if(showProfile) closeProfile(); }}>
+
+        {/* PROFILE PANEL */}
+        {showProfile && user && (
+          <div className="profile-panel" ref={profilePanelRef} onClick={e => e.stopPropagation()}>
+            <div className="profile-panel-header">
+              <div className="profile-panel-title">{nickname}</div>
+            </div>
+
+            {/* LOCATION */}
+            <div className="profile-section">
+              <input className="loc-input" placeholder="enter your city…"
+                value={locationInput}
+                onChange={e => { setLocationInput(e.target.value); searchLocation(e.target.value); }}
+              />
+              {locationSuggestions.length > 0 && (
+                <div className="loc-suggestions">
+                  {locationSuggestions.map((loc, i) => (
+                    <div key={i} className="loc-suggestion" onClick={() => selectLocation(loc)}>
+                      {loc.name}
+                    </div>
+                  ))}
+                </div>
+              )}
+              {savedLocation && locationSuggestions.length === 0 && (
+                <div className="loc-current">
+                  <div className="loc-dot"/>
+                  <span>{savedLocation.name}</span>
+                </div>
+              )}
+              <div className="loc-toggle-row">
+                <div className="loc-toggle-label">Use location in Matches</div>
+                <div className={`loc-toggle ${useLocation?"":"off"}`} onClick={() => setUseLocation(v => !v)}/>
+              </div>
+            </div>
+
+            {/* OWN STATEMENTS */}
+            {statements.filter(s => s.authorId === user.uid).length > 0 && (
+              <div className="profile-section">
+                <div className="profile-section-label">Your statements</div>
+                {statements.filter(s => s.authorId === user.uid).map(s => (
+                  <div key={s.id} className="profile-stmt">
+                    <div>
+                      <div className={`profile-stmt-text italic ${pendingRemovals.has(s.id) ? "removed" : ""}`}>{s.text}</div>
+                    </div>
+                    <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}
+                      onClick={() => {
+                        if (pendingRemovals.has(s.id)) {
+                          setPendingRemovals(prev => { const n = new Set(prev); n.delete(s.id); return n; });
+                        } else {
+                          setPendingRemovals(prev => new Set([...prev, s.id]));
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* AGREED STATEMENTS */}
+            {statements.filter(s => s.authorId !== user.uid && clicked.has(s.id) && !pendingRemovals.has(s.id)).length > 0 && (
+              <div className="profile-section">
+                <div className="profile-section-label">Statements you agreed with</div>
+                {statements.filter(s => s.authorId !== user.uid && clicked.has(s.id)).map(s => (
+                  <div key={s.id} className="profile-stmt">
+                    <div>
+                      <div className={`profile-stmt-text ${pendingRemovals.has(s.id) ? "removed" : ""}`}>{s.text}</div>
+                      <div className="profile-stmt-meta">{s.author}</div>
+                    </div>
+                    <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}
+                      onClick={() => {
+                        if (pendingRemovals.has(s.id)) {
+                          setPendingRemovals(prev => { const n = new Set(prev); n.delete(s.id); return n; });
+                        } else {
+                          setPendingRemovals(prev => new Set([...prev, s.id]));
+                        }
+                      }}
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* RESET + SIGN OUT */}
+            <div className="profile-reset">
+              <button className="profile-reset-btn" onClick={() => { setModal({type:"reset",fromCommon:false}); setShowProfile(false); }}>
+                reset all statements
+              </button>
+            </div>
+            <div style={{textAlign:"center",paddingTop:12}}>
+              <button className="profile-reset-btn" onClick={handleLogout}>sign out</button>
+            </div>
+          </div>
+        )}
 
         {/* MODAL */}
         {modal && (
@@ -798,7 +998,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="nav-nick">{nickname}</div>
+                <div className="nav-nick" style={{cursor:"pointer"}} onClick={(e) => { e.stopPropagation(); setShowProfile(v => !v); }}>{nickname}</div>
               </div>
               <div className="nav-tabs">
                 <button className={`nav-tab ${screen==="feed"?"active":""}`} onClick={() => { setScreen("feed"); setSearchQuery(""); }}>
@@ -949,7 +1149,14 @@ export default function App() {
                   <div key={m.id} className="list-item">
                     <div className="list-item-left">
                       <div className="list-nick">{m.nickname}</div>
-                      <div className="list-sub"><span>{m.common}</span> statements in common</div>
+                      <div className="list-sub">
+                        <span>{m.common}</span> in common
+                        {m.location && useLocation && savedLocation && (
+                          <span style={{marginLeft:8,color:"#ccc"}}>
+                            · {m.location.name.split(',')[0] === savedLocation.name.split(',')[0] ? "same city" : m.location.name.split(',')[0]}
+                          </span>
+                        )}
+                      </div>
                     </div>
                     <div className="list-right">
                       <button className="write-btn" onClick={() => openChat(m)}>Write</button>
