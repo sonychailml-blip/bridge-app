@@ -1127,7 +1127,7 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <div style={{display:"flex",justifyContent:"center",marginTop:20,paddingBottom:16,borderBottom:"1px solid #f0f0f0"}}>
+                  <div style={{display:"flex",justifyContent:"center",marginTop:16,paddingBottom:16,borderBottom:"1px solid #f0f0f0"}}>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
