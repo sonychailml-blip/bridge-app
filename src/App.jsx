@@ -772,7 +772,7 @@ export default function App() {
         .empty{padding:64px 0;text-align:center;}
 
         /* PROFILE PANEL */
-        .profile-panel{position:fixed;top:0;right:0;bottom:0;left:0;background:rgba(255,255,255,0.97);z-index:25;overflow-y:auto;padding:20px 24px 48px;max-width:480px;margin:0 auto;}
+        .profile-panel{position:fixed;top:93px;right:0;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:#fff;z-index:25;overflow-y:auto;padding:16px 24px 48px;border-top:1px solid #f0f0f0;box-shadow:0 8px 32px rgba(0,0,0,0.06);}
         .profile-panel-header{display:flex;align-items:center;justify-content:space-between;padding-bottom:16px;border-bottom:1px solid #f0f0f0;margin-bottom:0;}
         .profile-panel-title{font-family:'Playfair Display',serif;font-size:18px;font-style:italic;}
         .profile-section{padding:16px 0;border-bottom:1px solid #f5f5f5;}
@@ -814,6 +814,8 @@ export default function App() {
 
         {/* PROFILE PANEL */}
         {showProfile && user && (
+          <>
+          <div style={{position:"fixed",inset:0,zIndex:24}} onClick={closeProfile}/>
           <div className="profile-panel" ref={profilePanelRef} onClick={e => e.stopPropagation()}>
             <div className="profile-panel-header">
               <div className="profile-panel-title">{nickname}</div>
@@ -851,19 +853,18 @@ export default function App() {
               <div className="profile-section">
                 <div className="profile-section-label">Your statements</div>
                 {statements.filter(s => s.authorId === user.uid).map(s => (
-                  <div key={s.id} className="profile-stmt">
+                  <div key={s.id} className="profile-stmt" style={{cursor:"pointer"}}
+                    onClick={() => {
+                      if (pendingRemovals.has(s.id)) {
+                        setPendingRemovals(prev => { const n = new Set(prev); n.delete(s.id); return n; });
+                      } else {
+                        setPendingRemovals(prev => new Set([...prev, s.id]));
+                      }
+                    }}>
                     <div>
                       <div className={`profile-stmt-text italic ${pendingRemovals.has(s.id) ? "removed" : ""}`}>{s.text}</div>
                     </div>
-                    <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}
-                      onClick={() => {
-                        if (pendingRemovals.has(s.id)) {
-                          setPendingRemovals(prev => { const n = new Set(prev); n.delete(s.id); return n; });
-                        } else {
-                          setPendingRemovals(prev => new Set([...prev, s.id]));
-                        }
-                      }}
-                    />
+                    <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}/>
                   </div>
                 ))}
               </div>
@@ -874,20 +875,19 @@ export default function App() {
               <div className="profile-section">
                 <div className="profile-section-label">Statements you agreed with</div>
                 {statements.filter(s => s.authorId !== user.uid && clicked.has(s.id)).map(s => (
-                  <div key={s.id} className="profile-stmt">
+                  <div key={s.id} className="profile-stmt" style={{cursor:"pointer"}}
+                    onClick={() => {
+                      if (pendingRemovals.has(s.id)) {
+                        setPendingRemovals(prev => { const n = new Set(prev); n.delete(s.id); return n; });
+                      } else {
+                        setPendingRemovals(prev => new Set([...prev, s.id]));
+                      }
+                    }}>
                     <div>
                       <div className={`profile-stmt-text ${pendingRemovals.has(s.id) ? "removed" : ""}`}>{s.text}</div>
                       <div className="profile-stmt-meta">{s.author}</div>
                     </div>
-                    <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}
-                      onClick={() => {
-                        if (pendingRemovals.has(s.id)) {
-                          setPendingRemovals(prev => { const n = new Set(prev); n.delete(s.id); return n; });
-                        } else {
-                          setPendingRemovals(prev => new Set([...prev, s.id]));
-                        }
-                      }}
-                    />
+                    <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}/>
                   </div>
                 ))}
               </div>
@@ -903,6 +903,7 @@ export default function App() {
               <button className="profile-reset-btn" onClick={handleLogout}>sign out</button>
             </div>
           </div>
+          </>
         )}
 
         {/* MODAL */}
