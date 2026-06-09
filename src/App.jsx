@@ -727,11 +727,11 @@ export default function App() {
 
         /* FEED */
         .feed-section{padding:0 24px 100px;}
-        .add-statement{height:56px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid #f0f0f0;padding:0;}
-        .add-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:4px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:14px;outline:none;background:transparent;color:#111;}
+        .add-statement{padding:20px 0 16px;border-bottom:1px solid #f0f0f0;}
+        .add-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:6px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
         .add-input::placeholder{color:#ccc;}
         .add-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
-        .add-btn{background:none;border:1px solid #111;padding:4px 14px;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#111;}
+        .add-btn{background:none;border:1px solid #111;padding:5px 14px;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#111;}
         .add-btn:hover{background:#111;color:#fff;}
         .reset-btn{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;cursor:pointer;padding:0;transition:color .15s;}
         .reset-btn:hover{color:#111;}
@@ -764,8 +764,8 @@ export default function App() {
 
         /* MATCHES + MESSAGES — same row height */
         .list-section{padding:0 24px 100px;}
-        .section-header{height:56px;display:flex;align-items:flex-end;border-bottom:1px solid #f0f0f0;}
-        .section-sub{font-family:'Playfair Display',serif;font-size:13px;font-style:italic;color:#999;padding-bottom:16px;width:100%;}
+        .section-header{padding:20px 0 0;border-bottom:1px solid #f0f0f0;}
+        .section-sub{font-family:'Playfair Display',serif;font-size:13px;font-style:italic;color:#999;padding-bottom:16px;}
         .list-item{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-bottom:1px solid #f5f5f5;min-height:64px;}
         .list-item-left{flex:1;min-width:0;}
         .list-nick{font-size:15px;font-weight:300;color:#111;display:flex;align-items:center;gap:8px;}
@@ -1126,7 +1126,7 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <div style={{display:"flex",justifyContent:"center",marginTop:4}}>
+                  <div style={{display:"flex",justifyContent:"center",marginTop:6}}>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
