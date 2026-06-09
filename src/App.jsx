@@ -706,7 +706,7 @@ export default function App() {
 
         /* SEARCH */
         .search-bar{padding:12px 24px 0;position:sticky;top:93px;background:#fff;z-index:9;}
-        .search-input{width:100%;border:none;border-bottom:1px solid #f0f0f0;padding:8px 0 10px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
+        .search-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:8px 0 10px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
         .search-input::placeholder{color:#ddd;}
 
         /* CHAT header inside nav area */
@@ -727,7 +727,7 @@ export default function App() {
 
         /* FEED */
         .feed-section{padding:0 24px 100px;}
-        .add-statement{padding:14px 0 16px;border-bottom:1px solid #f0f0f0;}
+        .add-statement{padding:12px 0 12px;border-bottom:1px solid #f0f0f0;}
         .add-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:8px 0 10px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
         .add-input::placeholder{color:#ccc;}
         .add-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
@@ -1025,7 +1025,7 @@ export default function App() {
                   H
 
                 </div>
-<div style={{fontSize:9,color:"#ddd",letterSpacing:1,position:"absolute",left:24,bottom:14}}>v2.4</div>
+<div style={{fontSize:9,color:"#ddd",letterSpacing:1,position:"absolute",left:24,bottom:14}}>v2.6</div>
                 <div className="nav-nick" style={{cursor:"pointer"}} onClick={(e) => { e.stopPropagation(); if(showProfile) closeProfile(); else openProfile(); }}>{nickname}</div>
               </div>
               <div className="nav-tabs">
