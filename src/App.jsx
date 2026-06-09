@@ -241,9 +241,6 @@ export default function App() {
           await updateDoc(doc(db, "statements", id), { clicks: increment(-1) }).catch(()=>{});
         } catch(e) {}
       });
-      // also remove from user's clicked array
-      const newClickedArr = [...newClicked];
-      updateDoc(doc(db, "users", user.uid), { clicked: newClickedArr }).catch(()=>{});
       setPendingRemovals(new Set());
     }
     setShowProfile(false);
