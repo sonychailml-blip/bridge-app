@@ -26,6 +26,7 @@ import "./App.css";
 import Auth from "./components/Auth";
 import Profile from "./components/Profile";
 import Chat from "./components/Chat";
+import Admin from "./components/Admin";
 
 
 const BANNED_WORDS = ["drugs","cocaine","heroin","buy weed","sell drugs","murder","terrorism"];
@@ -72,7 +73,6 @@ export default function App() {
   const [useLocation, setUseLocation] = useState(false);
   const [notification, setNotification] = useState(null);
   const [notifKey, setNotifKey] = useState(0);
-  const [adminStats, setAdminStats] = useState({ users: 0, statements: 0, chats: 0 });
   const [isBlocked, setIsBlocked] = useState(false);
   const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [completeNickInput, setCompleteNickInput] = useState("");
@@ -238,14 +238,7 @@ export default function App() {
     });
   }, [allUsers, user]);
 
-  // load admin stats
-  useEffect(() => {
-    if (!user || user.uid !== ADMIN_UID) return;
-    const unsub = onSnapshot(collection(db, "users"), snap => {
-      setAdminStats(prev => ({ ...prev, users: snap.size }));
-    });
-    return unsub;
-  }, [user]);
+
 
   // compute matches + new match dot
   useEffect(() => {
@@ -382,21 +375,7 @@ export default function App() {
     showNotif("Report submitted — thank you");
   };
 
-  const deleteStatement = async (id) => {
-    const { deleteDoc } = await import("firebase/firestore");
-    await deleteDoc(doc(db, "statements", id));
-    showNotif("Statement deleted");
-  };
 
-  const blockUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { blocked: true });
-    showNotif("User blocked");
-  };
-
-  const unblockUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { blocked: false });
-    showNotif("User unblocked");
-  };
 
   const confirmReset = async (fromCommon = false) => {
     if (fromCommon) {
@@ -811,96 +790,11 @@ export default function App() {
 
             {/* ADMIN */}
             {screen==="admin" && user.uid === ADMIN_UID && (
-              <div className="list-section">
-                <div className="section-header">
-                  <div className="section-sub">administration</div>
-                </div>
-
-                {/* stats */}
-                <div style={{display:"flex",gap:24,padding:"20px 0",borderBottom:"1px solid #f0f0f0"}}>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:28,fontFamily:"Playfair Display,serif",fontWeight:400}}>{adminStats.users}</div>
-                    <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#bbb",marginTop:4}}>users</div>
-                  </div>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:28,fontFamily:"Playfair Display,serif",fontWeight:400}}>{statements.length}</div>
-                    <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#bbb",marginTop:4}}>statements</div>
-                  </div>
-                  <div style={{textAlign:"center"}}>
-                    <div style={{fontSize:28,fontFamily:"Playfair Display,serif",fontWeight:400}}>{allUsers.filter(u => u.clicked?.length > 0).length}</div>
-                    <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#bbb",marginTop:4}}>active</div>
-                  </div>
-                </div>
-
-                {/* reported statements */}
-                {statements.filter(s => s.reports > 0).length > 0 && (
-                  <>
-                    <div style={{padding:"16px 0 8px",fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#999"}}>
-                      Reported statements
-                    </div>
-                    {statements.filter(s => s.reports > 0).sort((a,b) => b.reports - a.reports).map(s => (
-                      <div key={s.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:"1px solid #f5f5f5",gap:12}}>
-                        <div style={{flex:1}}>
-                          <div style={{fontSize:14,color:"#111"}}>{s.text}</div>
-                          <div style={{fontSize:10,color:"#ccc",marginTop:3,textTransform:"uppercase",letterSpacing:1}}>
-                            {s.author} · {s.reports} report{s.reports>1?"s":""}
-                          </div>
-                        </div>
-                        <button onClick={() => deleteStatement(s.id)} style={{background:"none",border:"1px solid #111",padding:"5px 12px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#111",whiteSpace:"nowrap"}}>
-                          Delete
-                        </button>
-                      </div>
-                    ))}
-                  </>
-                )}
-
-                {/* all statements */}
-                <div style={{padding:"16px 0 8px",fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#999",marginTop:8}}>
-                  All statements
-                </div>
-                <div style={{marginBottom:12}}>
-                  <input
-                    style={{width:"100%",border:"none",borderBottom:"1px solid #f0f0f0",padding:"8px 0",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:13,outline:"none",background:"transparent",color:"#111"}}
-                    placeholder="search…"
-                    value={searchQuery}
-                    onChange={e => setSearchQuery(e.target.value)}
-                  />
-                </div>
-                {statements
-                  .filter(s => searchQuery==="" || s.text.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map(s => (
-                  <div key={s.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:"1px solid #f5f5f5",gap:12}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:14,color:"#111"}}>{s.text}</div>
-                      <div style={{fontSize:10,color:"#ccc",marginTop:3,textTransform:"uppercase",letterSpacing:1}}>
-                        {s.author} · {(s.clicks||0).toLocaleString()} clicks
-                        {s.reports > 0 && <span style={{color:"#e0a0a0"}}> · {s.reports} reports</span>}
-                      </div>
-                    </div>
-                    <button onClick={() => deleteStatement(s.id)} style={{background:"none",border:"1px solid #ddd",padding:"5px 12px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#999",whiteSpace:"nowrap",transition:"all .15s"}}>
-                      Delete
-                    </button>
-                  </div>
-                ))}
-
-                {/* users */}
-                <div style={{padding:"16px 0 8px",fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#999",marginTop:8}}>
-                  All users
-                </div>
-                {allUsers.map(u => (
-                  <div key={u.id} style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"12px 0",borderBottom:"1px solid #f5f5f5",gap:12}}>
-                    <div style={{flex:1}}>
-                      <div style={{fontSize:14,color: u.blocked?"#ccc":"#111"}}>{u.nickname} {u.blocked && "· blocked"}</div>
-                      <div style={{fontSize:10,color:"#ccc",marginTop:3,textTransform:"uppercase",letterSpacing:1}}>
-                        {(u.clicked||[]).length} statements clicked
-                      </div>
-                    </div>
-                    <button onClick={() => u.blocked ? unblockUser(u.id) : blockUser(u.id)} style={{background:"none",border:"1px solid #ddd",padding:"5px 12px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color: u.blocked?"#111":"#999",whiteSpace:"nowrap"}}>
-                      {u.blocked ? "Unblock" : "Block"}
-                    </button>
-                  </div>
-                ))}
-              </div>
+              <Admin
+                statements={statements}
+                allUsers={allUsers}
+                onNotif={showNotif}
+              />
             )}
 
 
