@@ -1021,7 +1021,7 @@ export default function App() {
             <div className="nav">
               <div className="nav-top">
                 <div className="nav-nick" style={{visibility:"hidden"}}>{nickname}</div>
-                <div className="nav-logo">
+                <div className="nav-logo" style={{cursor:"default"}}>
                   H
 
                 </div>
@@ -1089,8 +1089,8 @@ export default function App() {
             {/* FEED */}
             {screen==="feed" && (
               <div className="feed-section">
-                <div className="add-statement">
-                  <input className="add-input" placeholder="write a statement about yourself…"
+                <div className="add-statement" style={{minHeight:80}}>
+                  <input className="add-input" placeholder="write a statement · or search…"
                     value={newStatement}
                     onChange={e => {
                       const val = e.target.value;
