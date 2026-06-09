@@ -25,6 +25,7 @@ import { auth, db } from "./firebase";
 import "./App.css";
 import Auth from "./components/Auth";
 import Profile from "./components/Profile";
+import Chat from "./components/Chat";
 
 
 const BANNED_WORDS = ["drugs","cocaine","heroin","buy weed","sell drugs","murder","terrorism"];
@@ -76,7 +77,6 @@ export default function App() {
   const [profileIncomplete, setProfileIncomplete] = useState(false);
   const [completeNickInput, setCompleteNickInput] = useState("");
 
-  const chatEndRef = useRef(null);
   const feedEndRef = useRef(null);
 
   const showNotif = (msg) => { setNotification(msg); setNotifKey(k => k + 1); };
@@ -319,9 +319,7 @@ export default function App() {
     return unsub;
   }, [activeChat, user]);
 
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages]);
+
 
   // close suggestions on click outside
   useEffect(() => {
@@ -909,23 +907,18 @@ export default function App() {
 
             {/* CHAT */}
             {screen==="chat" && activeChat && (
-              <div className="chat-body">
-                <div className="chat-msgs">
-                  {chatMessages.map((msg, i) => (
-                    <div key={i} className={`msg ${msg.from===user.uid?"you":"them"}`}>
-                      {msg.from!==user.uid && <div className="msg-sender">{msg.fromNick}</div>}
-                      <div className="msg-text">{msg.text}</div>
-                    </div>
-                  ))}
-                  <div ref={chatEndRef}/>
-                </div>
-                <div className="chat-input-row">
-                  <input className="chat-input" placeholder="write a message…"
-                    value={chatInput} onChange={e => setChatInput(e.target.value)}
-                    onKeyDown={e => e.key==="Enter" && sendMessage()} />
-                  <button className="send-btn" onClick={sendMessage}>↑</button>
-                </div>
-              </div>
+              <Chat
+                user={user}
+                activeChat={activeChat}
+                chatMessages={chatMessages}
+                chatInput={chatInput}
+                setChatInput={setChatInput}
+                activeChatCommon={activeChatCommon}
+                showCommon={showCommon}
+                setShowCommon={setShowCommon}
+                onSend={sendMessage}
+                onResetCommon={() => setModal({type:"reset", fromCommon:true})}
+              />
             )}
           </div>
         )}
