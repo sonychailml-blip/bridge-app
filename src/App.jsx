@@ -727,8 +727,8 @@ export default function App() {
 
         /* FEED */
         .feed-section{padding:0 24px 100px;}
-        .add-statement{padding:16px 0 20px;border-bottom:1px solid #f0f0f0;}
-        .add-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:8px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:15px;outline:none;background:transparent;color:#111;}
+        .add-statement{padding:20px 0 16px;border-bottom:1px solid #f0f0f0;}
+        .add-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:4px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:14px;outline:none;background:transparent;color:#111;}
         .add-input::placeholder{color:#ccc;}
         .add-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
         .add-btn{background:none;border:1px solid #111;padding:6px 16px;font-family:'Lato',sans-serif;font-weight:300;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#111;}
@@ -1089,7 +1089,7 @@ export default function App() {
             {/* FEED */}
             {screen==="feed" && (
               <div className="feed-section">
-                <div className="add-statement" style={{paddingTop:20}}>
+                <div className="add-statement">
                   <input className="add-input" placeholder="write a statement about yourself… or search"
                     value={newStatement}
                     onChange={e => {
@@ -1126,7 +1126,7 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <div style={{display:"flex",justifyContent:"center",marginTop:10}}>
+                  <div style={{display:"flex",justifyContent:"center",marginTop:6}}>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
