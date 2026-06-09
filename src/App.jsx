@@ -736,7 +736,7 @@ export default function App() {
         .reset-btn{background:none;border:none;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;cursor:pointer;padding:0;transition:color .15s;}
         .reset-btn:hover{color:#111;}
 
-        .stmt{display:flex;align-items:center;justify-content:space-between;padding:18px 0;border-bottom:1px solid #f5f5f5;gap:12px;cursor:pointer;transition:opacity .15s;min-height:88px;}
+        .stmt{display:flex;align-items:center;justify-content:space-between;padding:19px 0;border-bottom:1px solid #f5f5f5;gap:12px;cursor:pointer;transition:opacity .15s;min-height:88px;}
         .stmt:hover{opacity:.85;}
         .stmt:hover .report-btn{opacity:1;}
         .stmt-left{flex:1;}
