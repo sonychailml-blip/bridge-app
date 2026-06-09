@@ -887,10 +887,10 @@ export default function App() {
             </div>
 
             {/* OWN STATEMENTS */}
-            {statements.filter(s => s.authorId === user.uid && clicked.has(s.id) && !pendingRemovals.has(s.id)).length > 0 && (
+            {statements.filter(s => s.authorId === user.uid && (clicked.has(s.id) || pendingRemovals.has(s.id))).length > 0 && (
               <div className="profile-section">
                 <div className="profile-section-label">Your statements</div>
-                {statements.filter(s => s.authorId === user.uid && clicked.has(s.id) && !pendingRemovals.has(s.id)).map(s => (
+                {statements.filter(s => s.authorId === user.uid && (clicked.has(s.id) || pendingRemovals.has(s.id))).map(s => (
                   <div key={s.id} className="profile-stmt" style={{cursor:"pointer"}}
                     onClick={() => {
                       if (pendingRemovals.has(s.id)) {
