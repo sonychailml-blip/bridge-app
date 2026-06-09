@@ -29,6 +29,8 @@ import Chat from "./components/Chat";
 import Admin from "./components/Admin";
 import Feed from "./components/Feed";
 import { useStatements } from "./hooks/useStatements";
+import Matches from "./components/Matches";
+import Messages from "./components/Messages";
 
 
 const ADMIN_UID = "ezPSAlWRjZbqGGTIzWK2LRqLgR12";
@@ -520,62 +522,25 @@ export default function App() {
 
             {/* MATCHES */}
             {screen==="matches" && (
-              <div className="list-section">
-                <div className="section-header">
-                  <div className="section-sub">people who share your words</div>
-                </div>
-                {matches.length===0 ? (
-                  <div className="empty"><p>click statements in the feed<br/>to find people who think like you</p></div>
-                ) : filteredMatches.length===0 ? (
-                  <div className="empty"><p>no match found for "{searchQuery}"</p></div>
-                ) : filteredMatches.map(m => (
-                  <div key={m.id} className="list-item">
-                    <div className="list-item-left">
-                      <div className="list-nick">{m.nickname}</div>
-                      <div className="list-sub">
-                        <span>{m.common}</span> in common
-                        {m.location && useLocation && savedLocation && (
-                          <span style={{marginLeft:8,color:"#ccc"}}>
-                            · {m.location.name.split(',')[0] === savedLocation.name.split(',')[0] ? "same city" : m.location.name.split(',')[0]}
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                    <div className="list-right">
-                      <button className="write-btn" onClick={() => openChat(m)}>Write</button>
-                    </div>
-                  </div>
-                ))}
-              </div>
+              <Matches
+                matches={matches}
+                filteredMatches={filteredMatches}
+                searchQuery={searchQuery}
+                useLocation={useLocation}
+                savedLocation={savedLocation}
+                onOpenChat={openChat}
+              />
             )}
 
             {/* MESSAGES */}
             {screen==="messages" && (
-              <div className="list-section">
-                <div className="section-header">
-                  <div className="section-sub">your conversations</div>
-                </div>
-                {chatList.length===0 ? (
-                  <div className="empty"><p>no conversations yet<br/>find matches and start writing</p></div>
-                ) : chatList
-                  .filter(c => searchQuery==="" || c.matchUser.nickname?.toLowerCase().includes(searchQuery.toLowerCase()))
-                  .map(c => (
-                    <div key={c.matchUser.id} className="list-item" style={{cursor:"pointer"}} onClick={() => openChat(c.matchUser)}>
-                      <div className="list-item-left">
-                        <div className="list-nick">
-                          {c.unread && <span className="unread-dot"/>}
-                          {c.matchUser.nickname}
-                        </div>
-                        <div className="list-preview">
-                          {c.lastMsg ? (c.lastMsg.from===user.uid ? `You: ${c.lastMsg.text}` : c.lastMsg.text) : ""}
-                        </div>
-                      </div>
-                      <div className="list-right">
-                        <div className="list-overlap"><span>{savedCommonCounts[c.matchUser.id] ?? c.matchUser.common}</span> in common</div>
-                      </div>
-                    </div>
-                  ))}
-              </div>
+              <Messages
+                user={user}
+                chatList={chatList}
+                searchQuery={searchQuery}
+                savedCommonCounts={savedCommonCounts}
+                onOpenChat={openChat}
+              />
             )}
 
             {/* ADMIN */}
