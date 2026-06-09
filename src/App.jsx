@@ -728,7 +728,7 @@ export default function App() {
         /* FEED */
         .feed-section{padding:0 24px 100px;}
         .add-statement{padding:14px 0 16px;border-bottom:1px solid #f0f0f0;}
-        .add-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:6px 0;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
+        .add-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:8px 0 10px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
         .add-input::placeholder{color:#ccc;}
         .add-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
         .add-btn{background:none;border:1px solid #111;padding:5px 14px;font-family:'Lato',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#111;}
