@@ -1089,8 +1089,8 @@ export default function App() {
 
             {/* FEED */}
             {screen==="feed" && (
-              <div className="feed-section">
-                <div className="search-bar">
+              <>
+                <div className="search-bar" style={{borderBottom:"1px solid #f0f0f0"}}>
                   <input className="search-input" placeholder="write a statement about yourself… or search"
                     value={newStatement}
                     onChange={e => {
@@ -1127,10 +1127,11 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <div style={{display:"flex",justifyContent:"center",marginTop:6}}>
+                  <div style={{display:"flex",justifyContent:"center",marginTop:6,paddingBottom:12}}>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
+                <div className="feed-section">
                 {searchLoading && <div style={{padding:"24px 0",textAlign:"center",fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>searching…</div>}
                 {!searchLoading && (searchResults ?? sortedStatements).length === 0 && (
                   <div className="empty"><p>{searchQuery ? "nothing found" : "no statements yet"}<br/>{!searchQuery && "be the first to write one"}</p></div>
@@ -1160,6 +1161,7 @@ export default function App() {
                   </div>
                 )}
               </div>
+              </>
             )}
 
             {/* MATCHES */}
