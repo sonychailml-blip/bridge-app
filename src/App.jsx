@@ -234,6 +234,7 @@ export default function App() {
     if (pendingRemovals.size > 0) {
       const newClicked = new Set([...clicked].filter(id => !pendingRemovals.has(id)));
       setClicked(newClicked);
+      setStatements(prev => prev.map(s => pendingRemovals.has(s.id) ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
       pendingRemovals.forEach(async id => {
         try {
           // just remove agreement — statement stays in feed for others
@@ -442,10 +443,12 @@ export default function App() {
     const stmtRef = doc(db, "statements", id);
     if (clicked.has(id)) {
       setClicked(prev => { const n = new Set(prev); n.delete(id); return n; });
+      setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
       await updateDoc(userRef, { clicked: arrayRemove(id) });
       await updateDoc(stmtRef, { clicks: increment(-1) });
     } else {
       setClicked(prev => new Set([...prev, id]));
+      setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: (s.clicks||0) + 1 } : s));
       await updateDoc(userRef, { clicked: arrayUnion(id) });
       await updateDoc(stmtRef, { clicks: increment(1) });
       showNotif("Added to your map");
