@@ -840,7 +840,7 @@ export default function App() {
         ::-webkit-scrollbar-thumb{background:#e0e0e0;}
       `}</style>
 
-      <div className="app" onClick={() => { if(showLogoutMenu) setShowLogoutMenu(false); if(showProfile) closeProfile(); }}>
+      <div className="app" onClick={() => { if(showProfile) closeProfile(); }}>
 
         {/* PROFILE PANEL */}
         {showProfile && user && (
@@ -877,6 +877,13 @@ export default function App() {
                 <div className="loc-toggle-label">Use location in Matches</div>
                 <div className={`loc-toggle ${useLocation?"":"off"}`} onClick={() => setUseLocation(v => !v)}/>
               </div>
+            </div>
+
+            {/* RESET */}
+            <div style={{padding:"16px 0",borderBottom:"1px solid #f5f5f5"}}>
+              <button className="profile-reset-btn" onClick={() => { setModal({type:"reset",fromCommon:false}); closeProfile(); }}>
+                reset all statements
+              </button>
             </div>
 
             {/* OWN STATEMENTS */}
@@ -1014,14 +1021,9 @@ export default function App() {
             <div className="nav">
               <div className="nav-top">
                 <div className="nav-nick" style={{visibility:"hidden"}}>{nickname}</div>
-                <div className="nav-logo" onClick={(e) => { e.stopPropagation(); setShowLogoutMenu(v => !v); }}>
+                <div className="nav-logo">
                   H
-                  {showLogoutMenu && (
-                    <div className="logout-menu" style={{left:"50%",transform:"translateX(-50%)"}}>
-                      <div className="logout-item" style={{color:"#ccc",cursor:"default",fontSize:10}}>{nickname}</div>
-                      <button className="logout-item" onClick={handleLogout}>Sign out</button>
-                    </div>
-                  )}
+
                 </div>
                 <div className="nav-nick" style={{cursor:"pointer"}} onClick={(e) => { e.stopPropagation(); if(showProfile) closeProfile(); else openProfile(); }}>{nickname}</div>
               </div>
@@ -1076,10 +1078,10 @@ export default function App() {
             )}
 
             {/* search bar — not in chat */}
-            {screen !== "chat" && (
+            {screen !== "chat" && screen !== "feed" && (
               <div className="search-bar">
                 <input className="search-input"
-                  placeholder={screen==="feed" ? "search statements…" : screen==="matches" ? "search by nickname…" : "search conversations…"}
+                  placeholder={screen==="matches" ? "search by nickname…" : "search conversations…"}
                   value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
               </div>
             )}
@@ -1124,7 +1126,7 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <div className="add-row">
+                  <div style={{display:"flex",justifyContent:"center",marginTop:10}}>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
