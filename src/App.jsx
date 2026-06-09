@@ -93,7 +93,6 @@ export default function App() {
           setIsBlocked(snap.data().blocked === true);
           if (snap.data().location) {
             setSavedLocation(snap.data().location);
-            setLocationInput(snap.data().location.name);
             setUseLocation(true);
           }
         } else {
