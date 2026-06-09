@@ -47,6 +47,7 @@ export default function App() {
   const [reported, setReported] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const [lastStmtDoc, setLastStmtDoc] = useState(null);
+  const [hasMoreStmts, setHasMoreStmts] = useState(true);
   const PAGE_SIZE = 20;
   const [matches, setMatches] = useState([]);
   const [prevMatchCount, setPrevMatchCount] = useState(0);
@@ -542,6 +543,10 @@ export default function App() {
                 matches={matches}
                 allUsers={allUsers}
                 searchQuery={searchQuery}
+                lastStmtDoc={lastStmtDoc}
+                setLastStmtDoc={setLastStmtDoc}
+                hasMoreStmts={hasMoreStmts}
+                setHasMoreStmts={setHasMoreStmts}
                 onReport={(id) => setModal({type:"report",id})}
                 onNotif={showNotif}
               />

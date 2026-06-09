@@ -17,14 +17,14 @@ export default function Feed({
   reported, setReported,
   matches, allUsers,
   searchQuery,
+  lastStmtDoc, setLastStmtDoc,
+  hasMoreStmts, setHasMoreStmts,
   onReport, onNotif,
 }) {
   const [newStatement, setNewStatement] = useState("");
   const [suggestions, setSuggestions] = useState([]);
-  const [lastStmtDoc, setLastStmtDoc] = useState(null);
   const [searchResults, setSearchResults] = useState(null);
   const [searchLoading, setSearchLoading] = useState(false);
-  const [hasMoreStmts, setHasMoreStmts] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
 
   const suggestionsRef = useRef(null);
