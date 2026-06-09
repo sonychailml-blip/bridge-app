@@ -28,26 +28,22 @@ import Profile from "./components/Profile";
 import Chat from "./components/Chat";
 import Admin from "./components/Admin";
 import Feed from "./components/Feed";
+import { useStatements } from "./hooks/useStatements";
 
 
-const BANNED_WORDS = ["drugs","cocaine","heroin","buy weed","sell drugs","murder","terrorism"];
-const REPORT_THRESHOLD = 3;
-const MONTH = 30 * 24 * 3600000;
 const ADMIN_UID = "ezPSAlWRjZbqGGTIzWK2LRqLgR12";
 
 export default function App() {
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
 
   const [screen, setScreen] = useState("feed");
   const [nickname, setNickname] = useState("");
-  const [statements, setStatements] = useState([]);
   const [clicked, setClicked] = useState(new Set());
   const [reported, setReported] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
-  const [lastStmtDoc, setLastStmtDoc] = useState(null);
-  const [hasMoreStmts, setHasMoreStmts] = useState(true);
   const PAGE_SIZE = 20;
   const [matches, setMatches] = useState([]);
   const [prevMatchCount, setPrevMatchCount] = useState(0);
@@ -146,36 +142,6 @@ export default function App() {
   };
 
   // DATA
-  useEffect(() => {
-    if (!user) return;
-    const q = query(collection(db, "statements"), orderBy("ts", "desc"), limit(20));
-    const unsub = onSnapshot(q, async (snap) => {
-      const now = Date.now();
-      const docs = snap.docs;
-      setLastStmtDoc(docs[docs.length - 1] || null);
-      setHasMoreStmts(docs.length === 20);
-      const validStmts = docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(s => s.ts?.toMillis ? (now - s.ts.toMillis() < MONTH) : true)
-        .filter(s => (s.reports || 0) < REPORT_THRESHOLD);
-      setStatements(prev => {
-        const localClicks = new Map(prev.map(s => [s.id, s.clicks]));
-        return validStmts.map(s => ({
-          ...s,
-          clicks: localClicks.has(s.id) ? Math.max(s.clicks||0, localClicks.get(s.id)||0) : (s.clicks||0)
-        }));
-      });
-
-      // auto-clean clicked — remove IDs that no longer exist in statements
-      // we need all statement IDs not just first page, so we check against full db
-      setClicked(prev => {
-        if (prev.size === 0) return prev;
-        // will be cleaned properly when profile opens
-        return prev;
-      });
-    });
-    return unsub;
-  }, [user]);
 
 
 
