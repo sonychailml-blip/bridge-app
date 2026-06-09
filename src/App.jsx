@@ -1090,7 +1090,7 @@ export default function App() {
             {/* FEED */}
             {screen==="feed" && (
               <>
-                <div className="search-bar" style={{borderBottom:"1px solid #f0f0f0"}}>
+                <div className="search-bar">
                   <input className="search-input" placeholder="write a statement about yourself… or search"
                     value={newStatement}
                     onChange={e => {
@@ -1127,7 +1127,7 @@ export default function App() {
                       </div>
                     </div>
                   )}
-                  <div style={{display:"flex",justifyContent:"center",marginTop:6,paddingBottom:12}}>
+                  <div style={{display:"flex",justifyContent:"center",marginTop:6,paddingBottom:16,borderBottom:"1px solid #f0f0f0"}}>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
