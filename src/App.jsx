@@ -226,18 +226,7 @@ export default function App() {
     return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
   };
 
-  const openProfile = async () => {
-    // clean up clicked — remove statement IDs that no longer exist
-    if (clicked.size > 0) {
-      const allStmtIds = new Set(statements.map(s => s.id));
-      // also fetch any clicked IDs not in current page
-      const orphanIds = [...clicked].filter(id => !allStmtIds.has(id));
-      if (orphanIds.length > 0) {
-        const cleanedClicked = new Set([...clicked].filter(id => allStmtIds.has(id)));
-        setClicked(cleanedClicked);
-        await updateDoc(doc(db, "users", user.uid), { clicked: [...cleanedClicked] });
-      }
-    }
+  const openProfile = () => {
     setShowProfile(true);
   };
 
