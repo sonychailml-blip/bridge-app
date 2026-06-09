@@ -267,7 +267,13 @@ export default function App() {
         .map(d => ({ id: d.id, ...d.data() }))
         .filter(s => s.ts?.toMillis ? (now - s.ts.toMillis() < MONTH) : true)
         .filter(s => (s.reports || 0) < REPORT_THRESHOLD);
-      setStatements(validStmts);
+      setStatements(prev => {
+        const localClicks = new Map(prev.map(s => [s.id, s.clicks]));
+        return validStmts.map(s => ({
+          ...s,
+          clicks: localClicks.has(s.id) ? Math.max(s.clicks||0, localClicks.get(s.id)||0) : (s.clicks||0)
+        }));
+      });
 
       // auto-clean clicked — remove IDs that no longer exist in statements
       // we need all statement IDs not just first page, so we check against full db
