@@ -191,14 +191,19 @@ export default function App() {
   const searchLocation = async (query) => {
     if (query.length < 2) { setLocationSuggestions([]); return; }
     try {
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&featuretype=city,town`);
+      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`;
+      const res = await fetch(url, {
+        headers: { 'Accept-Language': 'en', 'User-Agent': 'HApp/1.0' }
+      });
       const data = await res.json();
-      setLocationSuggestions(data.map(d => ({
-        name: d.display_name.split(',').slice(0,2).join(',').trim(),
-        full: d.display_name,
-        lat: parseFloat(d.lat),
-        lng: parseFloat(d.lon),
-      })));
+      setLocationSuggestions(data
+        .filter(d => ['city','town','village','municipality'].includes(d.type) || d.addresstype === 'city' || d.addresstype === 'town')
+        .slice(0, 5)
+        .map(d => ({
+          name: [d.address?.city || d.address?.town || d.address?.village || d.name, d.address?.country].filter(Boolean).join(', '),
+          lat: parseFloat(d.lat),
+          lng: parseFloat(d.lon),
+        })));
     } catch(e) { setLocationSuggestions([]); }
   };
 
@@ -222,16 +227,19 @@ export default function App() {
   };
 
   const closeProfile = () => {
-    // apply pending removals
     if (pendingRemovals.size > 0) {
       const newClicked = new Set([...clicked].filter(id => !pendingRemovals.has(id)));
       setClicked(newClicked);
       pendingRemovals.forEach(async id => {
         try {
+          // just remove agreement — statement stays in feed for others
           await updateDoc(doc(db, "users", user.uid), { clicked: arrayRemove(id) });
-          await updateDoc(doc(db, "statements", id), { clicks: increment(-1) });
+          await updateDoc(doc(db, "statements", id), { clicks: increment(-1) }).catch(()=>{});
         } catch(e) {}
       });
+      // also remove from user's clicked array
+      const newClickedArr = [...newClicked];
+      updateDoc(doc(db, "users", user.uid), { clicked: newClickedArr }).catch(()=>{});
       setPendingRemovals(new Set());
     }
     setShowProfile(false);
