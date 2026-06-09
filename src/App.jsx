@@ -1089,8 +1089,8 @@ export default function App() {
             {/* FEED */}
             {screen==="feed" && (
               <div className="feed-section">
-                <div className="add-statement" style={{minHeight:80}}>
-                  <input className="add-input" placeholder="write a statement · or search…"
+                <div className="add-statement" style={{paddingTop:20}}>
+                  <input className="add-input" placeholder="write a statement about yourself… or search"
                     value={newStatement}
                     onChange={e => {
                       const val = e.target.value;
