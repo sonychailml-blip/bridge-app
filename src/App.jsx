@@ -793,7 +793,7 @@ export default function App() {
         .profile-stmt{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f8f8f8;gap:12px;}
         .profile-stmt-text{font-size:14px;color:#111;line-height:1.4;flex:1;}
         .profile-stmt-text.italic{font-family:'Playfair Display',serif;font-style:italic;}
-        .profile-stmt-text.removed{opacity:0.25;text-decoration:line-through;}
+
         .profile-stmt-meta{font-size:10px;color:#ccc;margin-top:2px;letter-spacing:.5px;text-transform:uppercase;}
         .profile-stmt-dot{width:8px;height:8px;border-radius:50%;border:1px solid #ccc;cursor:pointer;flex-shrink:0;transition:all .15s;}
         .profile-stmt-dot.on{background:#111;border-color:#111;}
@@ -862,7 +862,7 @@ export default function App() {
                       }
                     }}>
                     <div>
-                      <div className={`profile-stmt-text italic ${pendingRemovals.has(s.id) ? "removed" : ""}`}>{s.text}</div>
+                      <div className="profile-stmt-text italic">{s.text}</div>
                     </div>
                     <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}/>
                   </div>
@@ -884,7 +884,7 @@ export default function App() {
                       }
                     }}>
                     <div>
-                      <div className={`profile-stmt-text ${pendingRemovals.has(s.id) ? "removed" : ""}`}>{s.text}</div>
+                      <div className="profile-stmt-text">{s.text}</div>
                       <div className="profile-stmt-meta">{s.author}</div>
                     </div>
                     <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}/>
