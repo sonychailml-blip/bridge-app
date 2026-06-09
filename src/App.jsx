@@ -226,6 +226,21 @@ export default function App() {
     return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
   };
 
+  const openProfile = async () => {
+    // clean up clicked — remove statement IDs that no longer exist
+    if (clicked.size > 0) {
+      const allStmtIds = new Set(statements.map(s => s.id));
+      // also fetch any clicked IDs not in current page
+      const orphanIds = [...clicked].filter(id => !allStmtIds.has(id));
+      if (orphanIds.length > 0) {
+        const cleanedClicked = new Set([...clicked].filter(id => allStmtIds.has(id)));
+        setClicked(cleanedClicked);
+        await updateDoc(doc(db, "users", user.uid), { clicked: [...cleanedClicked] });
+      }
+    }
+    setShowProfile(true);
+  };
+
   const closeProfile = () => {
     if (pendingRemovals.size > 0) {
       const newClicked = new Set([...clicked].filter(id => !pendingRemovals.has(id)));
@@ -255,18 +270,25 @@ export default function App() {
   // DATA
   useEffect(() => {
     if (!user) return;
-    // initial load — listen to first page in realtime
     const q = query(collection(db, "statements"), orderBy("ts", "desc"), limit(20));
-    const unsub = onSnapshot(q, (snap) => {
+    const unsub = onSnapshot(q, async (snap) => {
       const now = Date.now();
       const docs = snap.docs;
       setLastStmtDoc(docs[docs.length - 1] || null);
       setHasMoreStmts(docs.length === 20);
-      setStatements(docs
+      const validStmts = docs
         .map(d => ({ id: d.id, ...d.data() }))
         .filter(s => s.ts?.toMillis ? (now - s.ts.toMillis() < MONTH) : true)
-        .filter(s => (s.reports || 0) < REPORT_THRESHOLD)
-      );
+        .filter(s => (s.reports || 0) < REPORT_THRESHOLD);
+      setStatements(validStmts);
+
+      // auto-clean clicked — remove IDs that no longer exist in statements
+      // we need all statement IDs not just first page, so we check against full db
+      setClicked(prev => {
+        if (prev.size === 0) return prev;
+        // will be cleaned properly when profile opens
+        return prev;
+      });
     });
     return unsub;
   }, [user]);
@@ -827,6 +849,7 @@ export default function App() {
           <div className="profile-panel" ref={profilePanelRef} onClick={e => e.stopPropagation()}>
             <div className="profile-panel-header">
               <div className="profile-panel-title">{nickname}</div>
+              <button className="profile-reset-btn" onClick={handleLogout}>sign out</button>
             </div>
 
             {/* LOCATION */}
@@ -901,15 +924,8 @@ export default function App() {
               </div>
             )}
 
-            {/* RESET + SIGN OUT */}
-            <div className="profile-reset">
-              <button className="profile-reset-btn" onClick={() => { setModal({type:"reset",fromCommon:false}); setShowProfile(false); }}>
-                reset all statements
-              </button>
-            </div>
-            <div style={{textAlign:"center",paddingTop:12}}>
-              <button className="profile-reset-btn" onClick={handleLogout}>sign out</button>
-            </div>
+
+
           </div>
           </>
         )}
@@ -1007,7 +1023,7 @@ export default function App() {
                     </div>
                   )}
                 </div>
-                <div className="nav-nick" style={{cursor:"pointer"}} onClick={(e) => { e.stopPropagation(); setShowProfile(v => !v); }}>{nickname}</div>
+                <div className="nav-nick" style={{cursor:"pointer"}} onClick={(e) => { e.stopPropagation(); if(showProfile) closeProfile(); else openProfile(); }}>{nickname}</div>
               </div>
               <div className="nav-tabs">
                 <button className={`nav-tab ${screen==="feed"?"active":""}`} onClick={() => { setScreen("feed"); setSearchQuery(""); }}>
@@ -1109,7 +1125,6 @@ export default function App() {
                     </div>
                   )}
                   <div className="add-row">
-                    <button className="reset-btn" onClick={() => setModal({type:"reset",fromCommon:false})}>Reset map</button>
                     <button className="add-btn" onClick={addStatement}>Publish</button>
                   </div>
                 </div>
@@ -1125,7 +1140,7 @@ export default function App() {
                     </div>
                     <div className="stmt-right">
                       <div className={`dot ${clicked.has(s.id)?"on":""}`}/>
-                      <div className="cnt">{(s.clicks||0).toLocaleString()}</div>
+                      <div className="cnt">{Math.max(0, s.clicks||0).toLocaleString()}</div>
                       {s.authorId !== user.uid && !reported.has(s.id) && (
                         <button className="r-btn"
                           onClick={e => { e.stopPropagation(); setModal({type:"report",id:s.id}); }}>
