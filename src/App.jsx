@@ -24,6 +24,7 @@ import {
 import { auth, db } from "./firebase";
 import "./App.css";
 import Auth from "./components/Auth";
+import Profile from "./components/Profile";
 
 
 const BANNED_WORDS = ["drugs","cocaine","heroin","buy weed","sell drugs","murder","terrorism"];
@@ -66,12 +67,8 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
-  const [pendingRemovals, setPendingRemovals] = useState(new Set()); // temp removals while panel open
-  const [locationInput, setLocationInput] = useState("");
-  const [locationSuggestions, setLocationSuggestions] = useState([]);
-  const [savedLocation, setSavedLocation] = useState(null); // {name, lat, lng}
+  const [savedLocation, setSavedLocation] = useState(null);
   const [useLocation, setUseLocation] = useState(false);
-  const profilePanelRef = useRef(null);
   const [notification, setNotification] = useState(null);
   const [notifKey, setNotifKey] = useState(0);
   const [adminStats, setAdminStats] = useState({ users: 0, statements: 0, chats: 0 });
@@ -136,35 +133,7 @@ export default function App() {
     }
   };
 
-  const searchLocation = async (query) => {
-    if (query.length < 2) { setLocationSuggestions([]); return; }
-    try {
-      const url = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&limit=5&addressdetails=1`;
-      const res = await fetch(url, {
-        headers: { 'Accept-Language': 'en', 'User-Agent': 'HApp/1.0' }
-      });
-      const data = await res.json();
-      setLocationSuggestions(data
-        .filter(d => ['city','town','village','municipality'].includes(d.type) || d.addresstype === 'city' || d.addresstype === 'town')
-        .slice(0, 5)
-        .map(d => ({
-          name: [d.address?.city || d.address?.town || d.address?.village || d.name, d.address?.country].filter(Boolean).join(', '),
-          lat: parseFloat(d.lat),
-          lng: parseFloat(d.lon),
-        })));
-    } catch(e) { setLocationSuggestions([]); }
-  };
 
-  const selectLocation = async (loc) => {
-    setSavedLocation(loc);
-    setLocationInput(loc.name);
-    setLocationSuggestions([]);
-    setUseLocation(true);
-    // save to Firestore
-    await updateDoc(doc(db, "users", user.uid), {
-      location: { name: loc.name, lat: loc.lat, lng: loc.lng }
-    });
-  };
 
   const getDistanceKm = (lat1, lng1, lat2, lng2) => {
     const R = 6371;
@@ -174,27 +143,8 @@ export default function App() {
     return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
   };
 
-  const openProfile = () => {
-    setShowProfile(true);
-  };
-
-  const closeProfile = () => {
-    if (pendingRemovals.size > 0) {
-      const newClicked = new Set([...clicked].filter(id => !pendingRemovals.has(id)));
-      setClicked(newClicked);
-      setStatements(prev => prev.map(s => pendingRemovals.has(s.id) ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
-      pendingRemovals.forEach(async id => {
-        try {
-          // just remove agreement — statement stays in feed for others
-          await updateDoc(doc(db, "users", user.uid), { clicked: arrayRemove(id) });
-          await updateDoc(doc(db, "statements", id), { clicks: increment(-1) }).catch(()=>{});
-        } catch(e) {}
-      });
-      setPendingRemovals(new Set());
-    }
-    setShowProfile(false);
-    setLocationSuggestions([]);
-  };
+  const openProfile = () => setShowProfile(true);
+  const closeProfile = () => setShowProfile(false);
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -609,97 +559,21 @@ export default function App() {
 
         {/* PROFILE PANEL */}
         {showProfile && user && (
-          <>
-          <div style={{position:"fixed",inset:0,zIndex:24}} onClick={closeProfile}/>
-          <div className="profile-panel" ref={profilePanelRef} onClick={e => e.stopPropagation()}>
-            <div className="profile-panel-header">
-              <div className="profile-panel-title">{nickname}</div>
-              <button className="profile-reset-btn" onClick={handleLogout}>sign out</button>
-            </div>
-
-            {/* LOCATION */}
-            <div className="profile-section">
-              <input className="loc-input" placeholder="enter your city…"
-                value={locationInput}
-                onChange={e => { setLocationInput(e.target.value); searchLocation(e.target.value); }}
-              />
-              {locationSuggestions.length > 0 && (
-                <div className="loc-suggestions">
-                  {locationSuggestions.map((loc, i) => (
-                    <div key={i} className="loc-suggestion" onClick={() => selectLocation(loc)}>
-                      {loc.name}
-                    </div>
-                  ))}
-                </div>
-              )}
-              {savedLocation && locationSuggestions.length === 0 && (
-                <div className="loc-current">
-                  <div className="loc-dot"/>
-                  <span>{savedLocation.name}</span>
-                </div>
-              )}
-              <div className="loc-toggle-row">
-                <div className="loc-toggle-label">Use location in Matches</div>
-                <div className={`loc-toggle ${useLocation?"":"off"}`} onClick={() => setUseLocation(v => !v)}/>
-              </div>
-            </div>
-
-            {/* RESET */}
-            <div style={{padding:"16px 0",borderBottom:"1px solid #f5f5f5"}}>
-              <button className="profile-reset-btn" onClick={() => { setModal({type:"reset",fromCommon:false}); closeProfile(); }}>
-                reset all statements
-              </button>
-            </div>
-
-            {/* OWN STATEMENTS */}
-            {statements.filter(s => s.authorId === user.uid && (clicked.has(s.id) || pendingRemovals.has(s.id))).length > 0 && (
-              <div className="profile-section">
-                <div className="profile-section-label">Your statements</div>
-                {statements.filter(s => s.authorId === user.uid && (clicked.has(s.id) || pendingRemovals.has(s.id))).map(s => (
-                  <div key={s.id} className="profile-stmt" style={{cursor:"pointer"}}
-                    onClick={() => {
-                      if (pendingRemovals.has(s.id)) {
-                        setPendingRemovals(prev => { const n = new Set(prev); n.delete(s.id); return n; });
-                      } else {
-                        setPendingRemovals(prev => new Set([...prev, s.id]));
-                      }
-                    }}>
-                    <div>
-                      <div className="profile-stmt-text italic">{s.text}</div>
-                    </div>
-                    <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}/>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* AGREED STATEMENTS */}
-            {statements.filter(s => s.authorId !== user.uid && clicked.has(s.id) && !pendingRemovals.has(s.id)).length > 0 && (
-              <div className="profile-section">
-                <div className="profile-section-label">Statements you agreed with</div>
-                {statements.filter(s => s.authorId !== user.uid && clicked.has(s.id)).map(s => (
-                  <div key={s.id} className="profile-stmt" style={{cursor:"pointer"}}
-                    onClick={() => {
-                      if (pendingRemovals.has(s.id)) {
-                        setPendingRemovals(prev => { const n = new Set(prev); n.delete(s.id); return n; });
-                      } else {
-                        setPendingRemovals(prev => new Set([...prev, s.id]));
-                      }
-                    }}>
-                    <div>
-                      <div className="profile-stmt-text">{s.text}</div>
-                      <div className="profile-stmt-meta">{s.author}</div>
-                    </div>
-                    <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}/>
-                  </div>
-                ))}
-              </div>
-            )}
-
-
-
-          </div>
-          </>
+          <Profile
+            user={user}
+            nickname={nickname}
+            statements={statements}
+            clicked={clicked}
+            setClicked={setClicked}
+            setStatements={setStatements}
+            useLocation={useLocation}
+            setUseLocation={setUseLocation}
+            savedLocation={savedLocation}
+            setSavedLocation={setSavedLocation}
+            onClose={closeProfile}
+            onLogout={handleLogout}
+            onResetMap={() => setModal({type:"reset",fromCommon:false})}
+          />
         )}
 
         {/* MODAL */}
