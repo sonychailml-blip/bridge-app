@@ -42,11 +42,6 @@ export default function App() {
 
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
-  const { allUsers } = useUsers(user);
-  const { matches, setMatches, newMatchDot, setNewMatchDot } = useMatches(clicked, allUsers, useLocation, savedLocation);
-  const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user, allUsers, matches);
-
   const [screen, setScreen] = useState("feed");
   const [nickname, setNickname] = useState("");
   const [clicked, setClicked] = useState(new Set());
@@ -71,6 +66,12 @@ export default function App() {
 
 
   const showNotif = (msg) => { setNotification(msg); setNotifKey(k => k + 1); };
+
+  // HOOKS
+  const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
+  const { allUsers } = useUsers(user);
+  const { matches, setMatches, newMatchDot, setNewMatchDot } = useMatches(clicked, allUsers, useLocation, savedLocation);
+  const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user, allUsers, matches);
 
   // AUTH
   useEffect(() => {
