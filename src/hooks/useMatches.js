@@ -16,6 +16,7 @@ export function useMatches(user, clicked, useLocation, savedLocation) {
         const functions = getFunctions(undefined, "europe-west1");
         const getMatches = httpsCallable(functions, "getMatches");
         const result = await getMatches({ useLocation });
+        console.log("getMatches result:", JSON.stringify(result.data));
         const computed = result.data.matches;
         setMatches(computed);
         if (computed.length > prevMatchCount && prevMatchCount > 0) {
