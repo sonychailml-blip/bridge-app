@@ -71,7 +71,7 @@ export default function App() {
   // HOOKS
   const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
   const { allUsers } = useUsers(user);
-  const { matches, setMatches, newMatchDot, setNewMatchDot } = useMatches(user, clicked, useLocation, savedLocation);
+  const { matches, setMatches, newMatchDot, setNewMatchDot, fetchMatches } = useMatches(user, useLocation);
   const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user, allUsers, matches);
 
   // AUTH
@@ -363,7 +363,7 @@ export default function App() {
                 <button className={`nav-tab ${screen==="feed"?"active":""}`} onClick={() => { setScreen("feed"); setSearchQuery(""); }}>
                   Statements
                 </button>
-                <button className={`nav-tab ${screen==="matches"?"active":""}`} onClick={() => { setScreen("matches"); setSearchQuery(""); setNewMatchDot(false); }}>
+                <button className={`nav-tab ${screen==="matches"?"active":""}`} onClick={() => { setScreen("matches"); setSearchQuery(""); setNewMatchDot(false); fetchMatches(); }}>
                   Matches {newMatchDot && screen!=="matches" && <span className="nav-dot"/>}
                 </button>
                 <button className={`nav-tab ${screen==="messages"?"active":""}`} onClick={() => { setScreen("messages"); setSearchQuery(""); setNewMessageDot(false); }}>
