@@ -29,6 +29,9 @@ import Chat from "./components/Chat";
 import Admin from "./components/Admin";
 import Feed from "./components/Feed";
 import { useStatements } from "./hooks/useStatements";
+import { useUsers } from "./hooks/useUsers";
+import { useMatches } from "./hooks/useMatches";
+import { useChat } from "./hooks/useChat";
 import Matches from "./components/Matches";
 import Messages from "./components/Messages";
 
@@ -40,6 +43,9 @@ export default function App() {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
   const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
+  const { allUsers } = useUsers(user);
+  const { matches, setMatches, newMatchDot, setNewMatchDot } = useMatches(clicked, allUsers, useLocation, savedLocation);
+  const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user, allUsers, matches);
 
   const [screen, setScreen] = useState("feed");
   const [nickname, setNickname] = useState("");
@@ -47,13 +53,6 @@ export default function App() {
   const [reported, setReported] = useState(new Set());
   const [searchQuery, setSearchQuery] = useState("");
   const PAGE_SIZE = 20;
-  const [matches, setMatches] = useState([]);
-  const [prevMatchCount, setPrevMatchCount] = useState(0);
-  const [newMatchDot, setNewMatchDot] = useState(false);
-  const [allUsers, setAllUsers] = useState([]);
-  const [chatList, setChatList] = useState([]);
-  const [savedCommonCounts, setSavedCommonCounts] = useState({}); // {userId: count}
-  const [newMessageDot, setNewMessageDot] = useState(false);
   const [activeChat, setActiveChat] = useState(null);
   const [activeChatCommon, setActiveChatCommon] = useState([]); // cached common for active chat
   const [chatMessages, setChatMessages] = useState([]);
@@ -126,13 +125,7 @@ export default function App() {
 
 
 
-  const getDistanceKm = (lat1, lng1, lat2, lng2) => {
-    const R = 6371;
-    const dLat = (lat2-lat1) * Math.PI/180;
-    const dLng = (lng2-lng1) * Math.PI/180;
-    const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)**2;
-    return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-  };
+
 
   const openProfile = () => setShowProfile(true);
   const closeProfile = () => setShowProfile(false);
@@ -147,92 +140,15 @@ export default function App() {
 
 
 
-  useEffect(() => {
-    if (!user) return;
-    const unsub = onSnapshot(collection(db, "users"), (snap) => {
-      setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.id !== user.uid));
-    });
-    return unsub;
-  }, [user]);
-
-  // load saved common counts for Messages tab
-  useEffect(() => {
-    if (!user || allUsers.length === 0) return;
-    allUsers.forEach(async u => {
-      const chatId = [user.uid, u.id].sort().join("_");
-      const commonRef = doc(db, "chats", chatId, "meta", "common");
-      try {
-        const snap = await getDoc(commonRef);
-        if (snap.exists()) {
-          const count = snap.data().statements?.length || 0;
-          setSavedCommonCounts(prev => ({ ...prev, [u.id]: count }));
-        }
-      } catch(e) {}
-    });
-  }, [allUsers, user]);
 
 
 
-  // compute matches + new match dot
-  useEffect(() => {
-    if (clicked.size === 0) { setMatches([]); return; }
-    const computed = allUsers
-      .filter(u => !u.blocked)
-      .map(u => {
-        const uc = new Set(u.clicked || []);
-        const common = [...clicked].filter(id => uc.has(id));
-        let distKm = null;
-        if (useLocation && savedLocation && u.location) {
-          distKm = getDistanceKm(savedLocation.lat, savedLocation.lng, u.location.lat, u.location.lng);
-        }
-        return { ...u, common: common.length, commonIds: common, distKm };
-      }).filter(u => u.common > 0)
-      .sort((a, b) => {
-        if (useLocation && a.distKm !== null && b.distKm !== null) {
-          // combine score: distance + overlap
-          const scoreA = a.common * 10 - (a.distKm || 0) * 0.01;
-          const scoreB = b.common * 10 - (b.distKm || 0) * 0.01;
-          return scoreB - scoreA;
-        }
-        return b.common - a.common;
-      });
-    setMatches(computed);
-    if (computed.length > prevMatchCount && prevMatchCount > 0) {
-      setNewMatchDot(true);
-    }
-    setPrevMatchCount(computed.length);
-  }, [clicked, allUsers]);
 
-  // chat list — listens to all users independently from matches so chats survive reset
-  useEffect(() => {
-    if (!user || allUsers.length === 0) return;
-    const unsubs = [];
-    const listMap = {};
-    allUsers.forEach(u => {
-      const chatId = [user.uid, u.id].sort().join("_");
-      const q = query(collection(db, "chats", chatId, "messages"), orderBy("ts", "desc"));
-      const unsub = onSnapshot(q, (snap) => {
-        const msgs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-        const last = msgs[0] || null;
-        if (!last) return;
-        const isUnread = last.from !== user.uid;
-        const matchUser = matches.find(m => m.id === u.id) || { ...u, common: 0 };
-        listMap[u.id] = { matchUser, lastMsg: last, lastTs: last?.ts?.toMillis?.() || 0, unread: isUnread };
-        const sorted = Object.values(listMap).sort((a, b) => {
-          if (a.unread && !b.unread) return -1;
-          if (!a.unread && b.unread) return 1;
-          if (a.lastTs && b.lastTs) return b.lastTs - a.lastTs;
-          if (a.lastTs && !b.lastTs) return -1;
-          if (!a.lastTs && b.lastTs) return 1;
-          return b.matchUser.common - a.matchUser.common;
-        });
-        setChatList(sorted);
-        if (sorted.some(c => c.unread)) setNewMessageDot(true);
-      });
-      unsubs.push(unsub);
-    });
-    return () => unsubs.forEach(u => u());
-  }, [allUsers, user, matches]);
+
+
+
+
+
 
   // active chat messages
   useEffect(() => {
