@@ -207,9 +207,11 @@ export default function App() {
   };
 
   const getCommonStatements = (matchUser) => {
-    // Ищем пересечение clicked обоих пользователей среди существующих утверждений
-    const uc = new Set(matchUser.clicked || []);
-    const commonIds = [...clicked].filter(id => uc.has(id));
+    // matchUser может иметь commonIds (из сервера) или clicked (из allUsers)
+    const commonIds = matchUser.commonIds || (() => {
+      const uc = new Set(matchUser.clicked || []);
+      return [...clicked].filter(id => uc.has(id));
+    })();
     // Фильтруем только те что реально есть в statements
     const stmtMap = new Map(statements.map(s => [s.id, s]));
     return commonIds
