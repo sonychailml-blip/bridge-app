@@ -7,12 +7,14 @@ export function useMatches(user, useLocation) {
   const [loading, setLoading] = useState(false);
 
   const fetchMatches = useCallback(async () => {
+    console.log("fetchMatches called, user:", user?.uid);
     if (!user) return;
     setLoading(true);
     try {
       const functions = getFunctions(undefined, "europe-west1");
       const getMatchesFn = httpsCallable(functions, "getMatches");
       const result = await getMatchesFn({ useLocation });
+      console.log("getMatches result:", JSON.stringify(result.data));
       const computed = result.data.matches || [];
       setMatches(prev => {
         if (computed.length > prev.length && prev.length > 0) setNewMatchDot(true);
