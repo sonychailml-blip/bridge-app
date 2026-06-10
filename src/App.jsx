@@ -206,19 +206,6 @@ export default function App() {
     }
   };
 
-  const getCommonStatements = (matchUser) => {
-    // matchUser может иметь commonIds (из сервера) или clicked (из allUsers)
-    const commonIds = matchUser.commonIds || (() => {
-      const uc = new Set(matchUser.clicked || []);
-      return [...clicked].filter(id => uc.has(id));
-    })();
-    // Фильтруем только те что реально есть в statements
-    const stmtMap = new Map(statements.map(s => [s.id, s]));
-    return commonIds
-      .map(id => stmtMap.get(id))
-      .filter(Boolean);
-  };
-
   const openChat = async (matchUser) => {
     setActiveChat(matchUser);
     setShowCommon(false);
@@ -229,9 +216,10 @@ export default function App() {
     // load saved from Firestore
     const commonSnap = await getDoc(commonRef);
     const saved = commonSnap.exists() ? (commonSnap.data().statements || []) : [];
+    // Текущие совпадения — берём из commonStatements если есть (с сервера)
+    const current = (matchUser.commonStatements || []);
     if (saved.length > 0) {
-      // Есть сохранённые — показываем их + добавляем новые совпадения
-      const current = getCommonStatements(matchUser).map(s => ({ id: s.id, text: s.text, author: s.author }));
+      // Есть сохранённые — добавляем новые
       const savedIds = new Set(saved.map(s => s.id));
       const newOnes = current.filter(s => !savedIds.has(s.id));
       const merged = [...saved, ...newOnes];
@@ -241,8 +229,7 @@ export default function App() {
       }
       setSavedCommonCounts(prev => ({ ...prev, [matchUser.id]: merged.length }));
     } else {
-      // Нет сохранённых — вычисляем текущие
-      const current = getCommonStatements(matchUser).map(s => ({ id: s.id, text: s.text, author: s.author }));
+      // Нет сохранённых — используем текущие
       setActiveChatCommon(current);
       if (current.length > 0) {
         await setDoc(commonRef, { statements: current });

@@ -4,6 +4,7 @@ import {
   getDocs, doc, updateDoc, increment, arrayUnion, arrayRemove,
   serverTimestamp,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebase";
 
 const BANNED_WORDS = ["drugs","cocaine","heroin","buy weed","sell drugs","murder","terrorism"];
@@ -52,7 +53,7 @@ export default function Feed({
     return () => observer.disconnect();
   }, [lastStmtDoc, hasMoreStmts, loadingMore]);
 
-  // search
+  // search — через сервер, сортировка по популярности
   useEffect(() => {
     if (!searchQuery.trim()) {
       setSearchResults(null);
@@ -60,16 +61,19 @@ export default function Feed({
     }
     const timer = setTimeout(async () => {
       setSearchLoading(true);
-      const q = query(collection(db, "statements"), orderBy("text"), limit(50));
-      const snap = await getDocs(q);
-      const lower = searchQuery.toLowerCase();
-      const blockedUserIds = new Set(allUsers.filter(u => u.blocked).map(u => u.id));
-      const results = snap.docs
-        .map(d => ({ id: d.id, ...d.data() }))
-        .filter(s => s.text.toLowerCase().includes(lower))
-        .filter(s => !reported.has(s.id))
-        .filter(s => !blockedUserIds.has(s.authorId));
-      setSearchResults(results);
+      try {
+        const fns = getFunctions(undefined, "europe-west1");
+        const searchFn = httpsCallable(fns, "searchStatements");
+        const result = await searchFn({ query: searchQuery, limit: 50 });
+        const blockedUserIds = new Set(allUsers.filter(u => u.blocked).map(u => u.id));
+        const results = result.data.results
+          .filter(s => !reported.has(s.id))
+          .filter(s => !blockedUserIds.has(s.authorId));
+        setSearchResults(results);
+      } catch(e) {
+        console.error("search error:", e);
+        setSearchResults([]);
+      }
       setSearchLoading(false);
     }, 400);
     return () => clearTimeout(timer);
@@ -156,13 +160,16 @@ export default function Feed({
             const val = e.target.value;
             setNewStatement(val);
             if (val.trim().length > 2) {
-              const lower = val.toLowerCase();
-              const found = statements
-                .filter(s => s.text.toLowerCase().includes(lower) || lower.split(" ").some(w => w.length > 2 && s.text.toLowerCase().includes(w)))
-                .filter(s => s.text.toLowerCase() !== val.toLowerCase())
-                .sort((a, b) => (b.clicks||0) - (a.clicks||0))
-                .slice(0, 10);
-              setSuggestions(found);
+              try {
+                const fns = getFunctions(undefined, "europe-west1");
+                const searchFn = httpsCallable(fns, "searchStatements");
+                const result = await searchFn({ query: val, limit: 10 });
+                const found = result.data.results
+                  .filter(s => s.text.toLowerCase() !== val.toLowerCase());
+                setSuggestions(found);
+              } catch(e) {
+                setSuggestions([]);
+              }
             } else {
               setSuggestions([]);
             }
