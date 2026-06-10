@@ -70,7 +70,7 @@ export default function App() {
   // HOOKS
   const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
   const { allUsers } = useUsers(user);
-  const { matches, setMatches, newMatchDot, setNewMatchDot } = useMatches(clicked, allUsers, useLocation, savedLocation);
+  const { matches, setMatches, newMatchDot, setNewMatchDot } = useMatches(user, clicked, useLocation, savedLocation);
   const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user, allUsers, matches);
 
   // AUTH

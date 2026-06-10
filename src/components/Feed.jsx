@@ -1,9 +1,9 @@
 import { useState, useRef, useEffect } from "react";
 import {
   collection, addDoc, query, orderBy, limit, startAfter,
-  getDocs, doc, updateDoc, increment, arrayUnion, arrayRemove,
-  serverTimestamp,
+  getDocs, doc, updateDoc, arrayUnion, serverTimestamp,
 } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebase";
 
 const BANNED_WORDS = ["drugs","cocaine","heroin","buy weed","sell drugs","murder","terrorism"];
@@ -97,19 +97,23 @@ export default function Feed({
 
   const toggleClick = async (id) => {
     if (window._longPressed) { window._longPressed = false; return; }
-    const userRef = doc(db, "users", user.uid);
-    const stmtRef = doc(db, "statements", id);
-    if (clicked.has(id)) {
+    const action = clicked.has(id) ? "remove" : "add";
+    // Оптимистичное обновление UI сразу
+    if (action === "remove") {
       setClicked(prev => { const n = new Set(prev); n.delete(id); return n; });
       setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
-      await updateDoc(userRef, { clicked: arrayRemove(id) });
-      await updateDoc(stmtRef, { clicks: increment(-1) });
     } else {
       setClicked(prev => new Set([...prev, id]));
       setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: (s.clicks||0) + 1 } : s));
-      await updateDoc(userRef, { clicked: arrayUnion(id) });
-      await updateDoc(stmtRef, { clicks: increment(1) });
       onNotif("Added to your map");
+    }
+    // Сервер обновляет атомарно
+    try {
+      const functions = getFunctions(undefined, "europe-west1");
+      const toggleClickFn = httpsCallable(functions, "toggleClick");
+      await toggleClickFn({ statementId: id, action });
+    } catch (e) {
+      console.error("toggleClick error:", e);
     }
   };
 
