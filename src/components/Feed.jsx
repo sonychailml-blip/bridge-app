@@ -156,7 +156,7 @@ export default function Feed({
       <div className="search-bar">
         <input className="search-input" placeholder="write a statement about yourself… or search"
           value={newStatement}
-          onChange={e => {
+          onChange={async e => {
             const val = e.target.value;
             setNewStatement(val);
             if (val.trim().length > 2) {
