@@ -207,8 +207,14 @@ export default function App() {
   };
 
   const getCommonStatements = (matchUser) => {
+    // Ищем пересечение clicked обоих пользователей среди существующих утверждений
     const uc = new Set(matchUser.clicked || []);
-    return statements.filter(s => clicked.has(s.id) && uc.has(s.id));
+    const commonIds = [...clicked].filter(id => uc.has(id));
+    // Фильтруем только те что реально есть в statements
+    const stmtMap = new Map(statements.map(s => [s.id, s]));
+    return commonIds
+      .map(id => stmtMap.get(id))
+      .filter(Boolean);
   };
 
   const openChat = async (matchUser) => {
@@ -218,22 +224,29 @@ export default function App() {
     setScreen("chat");
     const chatId = [user.uid, matchUser.id].sort().join("_");
     const commonRef = doc(db, "chats", chatId, "meta", "common");
-    // compute current common statements
-    const current = getCommonStatements(matchUser).map(s => ({ id: s.id, text: s.text, author: s.author }));
     // load saved from Firestore
     const commonSnap = await getDoc(commonRef);
     const saved = commonSnap.exists() ? (commonSnap.data().statements || []) : [];
-    // merge: keep all saved + add new ones not already saved
-    const savedIds = new Set(saved.map(s => s.id));
-    const newOnes = current.filter(s => !savedIds.has(s.id));
-    const merged = [...saved, ...newOnes];
-    setActiveChatCommon(merged);
-    // save merged back if anything changed
-    if (newOnes.length > 0 || (saved.length === 0 && merged.length > 0)) {
-      await setDoc(commonRef, { statements: merged });
+    if (saved.length > 0) {
+      // Есть сохранённые — показываем их + добавляем новые совпадения
+      const current = getCommonStatements(matchUser).map(s => ({ id: s.id, text: s.text, author: s.author }));
+      const savedIds = new Set(saved.map(s => s.id));
+      const newOnes = current.filter(s => !savedIds.has(s.id));
+      const merged = [...saved, ...newOnes];
+      setActiveChatCommon(merged);
+      if (newOnes.length > 0) {
+        await setDoc(commonRef, { statements: merged });
+      }
+      setSavedCommonCounts(prev => ({ ...prev, [matchUser.id]: merged.length }));
+    } else {
+      // Нет сохранённых — вычисляем текущие
+      const current = getCommonStatements(matchUser).map(s => ({ id: s.id, text: s.text, author: s.author }));
+      setActiveChatCommon(current);
+      if (current.length > 0) {
+        await setDoc(commonRef, { statements: current });
+      }
+      setSavedCommonCounts(prev => ({ ...prev, [matchUser.id]: current.length }));
     }
-    // update savedCommonCounts so Messages tab shows correct number
-    setSavedCommonCounts(prev => ({ ...prev, [matchUser.id]: merged.length }));
   };
 
   const sendMessage = async () => {
