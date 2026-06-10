@@ -22,6 +22,7 @@ import {
   setDoc,
 } from "firebase/firestore";
 import { auth, db } from "./firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import "./App.css";
 import Auth from "./components/Auth";
 import Profile from "./components/Profile";
@@ -191,16 +192,18 @@ export default function App() {
       showNotif("Common ground cleared");
       return;
     }
-    // reset map: clear all clicked and decrement counters on each statement
-    const allClicked = [...clicked];
+    // reset map — через сервер
     setClicked(new Set());
-    await updateDoc(doc(db, "users", user.uid), { clicked: [] });
-    // decrement click count on every statement the user had clicked
-    await Promise.all(allClicked.map(id =>
-      updateDoc(doc(db, "statements", id), { clicks: increment(-1) }).catch(() => {})
-    ));
+    setStatements(prev => prev.map(s => clicked.has(s.id) ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
     setModal(null);
     showNotif("Your map has been cleared");
+    try {
+      const fns = getFunctions(undefined, "europe-west1");
+      const resetMap = httpsCallable(fns, "resetMap");
+      await resetMap();
+    } catch(e) {
+      console.error("resetMap error:", e);
+    }
   };
 
   const getCommonStatements = (matchUser) => {
