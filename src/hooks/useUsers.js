@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { collection, onSnapshot } from "firebase/firestore";
+import { collection, query, where, limit, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
 
 export function useUsers(user) {
@@ -7,9 +7,22 @@ export function useUsers(user) {
 
   useEffect(() => {
     if (!user) return;
-    const unsub = onSnapshot(collection(db, "users"), (snap) => {
-      setAllUsers(snap.docs.map(d => ({ id: d.id, ...d.data() })).filter(d => d.id !== user.uid));
+
+    // Загружаем только пользователей с хотя бы одним кликом
+    // и не заблокированных — максимум 500
+    const q = query(
+      collection(db, "users"),
+      limit(500)
+    );
+
+    const unsub = onSnapshot(q, (snap) => {
+      setAllUsers(
+        snap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter(d => d.id !== user.uid)
+      );
     });
+
     return unsub;
   }, [user]);
 
