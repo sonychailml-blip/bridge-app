@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   collection, addDoc, query, orderBy, limit, startAfter,
-  getDocs, doc, updateDoc, increment, arrayUnion, arrayRemove,
+  getDocs, doc, writeBatch, increment, arrayUnion, arrayRemove,
   serverTimestamp,
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
@@ -103,18 +103,23 @@ export default function Feed({
     if (window._longPressed) { window._longPressed = false; return; }
     const userRef = doc(db, "users", user.uid);
     const stmtRef = doc(db, "statements", id);
+    const suRef = doc(db, "statement_users", id);
+    const batch = writeBatch(db);
     if (clicked.has(id)) {
       setClicked(prev => { const n = new Set(prev); n.delete(id); return n; });
       setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
-      await updateDoc(userRef, { clicked: arrayRemove(id) });
-      await updateDoc(stmtRef, { clicks: increment(-1) });
+      batch.update(userRef, { clicked: arrayRemove(id) });
+      batch.update(stmtRef, { clicks: increment(-1) });
+      batch.set(suRef, { users: arrayRemove(user.uid) }, { merge: true });
     } else {
       setClicked(prev => new Set([...prev, id]));
       setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: (s.clicks||0) + 1 } : s));
-      await updateDoc(userRef, { clicked: arrayUnion(id) });
-      await updateDoc(stmtRef, { clicks: increment(1) });
+      batch.update(userRef, { clicked: arrayUnion(id) });
+      batch.update(stmtRef, { clicks: increment(1) });
+      batch.set(suRef, { users: arrayUnion(user.uid) }, { merge: true });
       onNotif("Added to your map");
     }
+    await batch.commit();
   };
 
   const addStatement = async () => {
@@ -130,7 +135,10 @@ export default function Feed({
       clicks: 1, reports: 0, ts: serverTimestamp(),
     });
     setClicked(prev => new Set([...prev, ref.id]));
-    await updateDoc(doc(db, "users", user.uid), { clicked: arrayUnion(ref.id) });
+    const addBatch = writeBatch(db);
+    addBatch.update(doc(db, "users", user.uid), { clicked: arrayUnion(ref.id) });
+    addBatch.set(doc(db, "statement_users", ref.id), { users: arrayUnion(user.uid) }, { merge: true });
+    await addBatch.commit();
     setNewStatement("");
     onNotif("Statement published");
   };
@@ -156,7 +164,7 @@ export default function Feed({
       <div className="search-bar">
         <input className="search-input" placeholder="write a statement about yourself… or search"
           value={newStatement}
-          onChange={async e => {
+          onChange={e => {
             const val = e.target.value;
             setNewStatement(val);
             if (val.trim().length > 2) {

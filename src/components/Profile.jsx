@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { doc, updateDoc, arrayRemove, increment } from "firebase/firestore";
+import { doc, updateDoc, writeBatch, arrayRemove, arrayUnion, increment } from "firebase/firestore";
 import { db } from "../firebase";
 
 export default function Profile({
@@ -45,12 +45,13 @@ export default function Profile({
       const newClicked = new Set([...clicked].filter(id => !pendingRemovals.has(id)));
       setClicked(newClicked);
       setStatements(prev => prev.map(s => pendingRemovals.has(s.id) ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
-      pendingRemovals.forEach(async id => {
-        try {
-          await updateDoc(doc(db, "users", user.uid), { clicked: arrayRemove(id) });
-          await updateDoc(doc(db, "statements", id), { clicks: increment(-1) }).catch(()=>{});
-        } catch(e) {}
+      const batch = writeBatch(db);
+      pendingRemovals.forEach(id => {
+        batch.update(doc(db, "users", user.uid), { clicked: arrayRemove(id) });
+        batch.update(doc(db, "statements", id), { clicks: increment(-1) });
+        batch.set(doc(db, "statement_users", id), { users: arrayRemove(user.uid) }, { merge: true });
       });
+      try { await batch.commit(); } catch(e) {}
       setPendingRemovals(new Set());
     }
     setLocationSuggestions([]);
