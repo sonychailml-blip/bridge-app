@@ -27,7 +27,6 @@ import "./App.css";
 import Auth from "./components/Auth";
 import Profile from "./components/Profile";
 import Chat from "./components/Chat";
-import Admin from "./components/Admin";
 import Feed from "./components/Feed";
 import { useStatements } from "./hooks/useStatements";
 import { useUsers } from "./hooks/useUsers";
@@ -37,7 +36,6 @@ import Matches from "./components/Matches";
 import Messages from "./components/Messages";
 
 
-const ADMIN_UID = "ezPSAlWRjZbqGGTIzWK2LRqLgR12";
 
 export default function App() {
 
@@ -369,11 +367,7 @@ export default function App() {
                 <button className={`nav-tab ${screen==="messages"?"active":""}`} onClick={() => { setScreen("messages"); setSearchQuery(""); setNewMessageDot(false); }}>
                   Messages {newMessageDot && screen!=="messages" && <span className="nav-dot"/>}
                 </button>
-                {user.uid === ADMIN_UID && (
-                  <button className={`nav-tab ${screen==="admin"?"active":""}`} onClick={() => { setScreen("admin"); setSearchQuery(""); }}>
-                    Admin
-                  </button>
-                )}
+
               </div>
 
               {/* chat name + in common button — shown only in chat screen */}
@@ -466,13 +460,7 @@ export default function App() {
             )}
 
             {/* ADMIN */}
-            {screen==="admin" && user.uid === ADMIN_UID && (
-              <Admin
-                statements={statements}
-                allUsers={allUsers}
-                onNotif={showNotif}
-              />
-            )}
+
 
 
 
