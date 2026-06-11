@@ -51,7 +51,7 @@ export default function Profile({
         batch.update(doc(db, "statements", id), { clicks: increment(-1) });
         batch.set(doc(db, "statement_users", id), { users: arrayRemove(user.uid) }, { merge: true });
       });
-      try { await batch.commit(); } catch(e) {}
+      batch.commit().catch(e => console.error(e));
       setPendingRemovals(new Set());
     }
     setLocationSuggestions([]);
