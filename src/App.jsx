@@ -70,7 +70,7 @@ export default function App() {
   const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
   const { allUsers } = useUsers(user);
   const { matches, setMatches, newMatchDot, setNewMatchDot, fetchMatches } = useMatches(user, useLocation);
-  const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user, allUsers, matches);
+  const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user);
 
   // AUTH
   useEffect(() => {
@@ -205,45 +205,62 @@ export default function App() {
   };
 
   const openChat = async (matchUser) => {
-    setActiveChat(matchUser);
+    // matchUser может прийти из Matches (с commonStatements) или из chatList (с withUid)
+    const chatUser = matchUser.withUid ? {
+      id: matchUser.withUid,
+      nickname: matchUser.withNick,
+      commonStatements: [],
+    } : matchUser;
+
+    setActiveChat(chatUser);
     setShowCommon(false);
     setNewMessageDot(false);
     setScreen("chat");
-    const chatId = [user.uid, matchUser.id].sort().join("_");
+
+    // Помечаем чат как прочитанный
+    const chatId = [user.uid, chatUser.id].sort().join("_");
+    try {
+      const fns = getFunctions(undefined, "europe-west1");
+      const markRead = httpsCallable(fns, "markChatRead");
+      markRead({ chatId });
+    } catch(e) {}
+
+    // Загружаем in common
     const commonRef = doc(db, "chats", chatId, "meta", "common");
-    // load saved from Firestore
     const commonSnap = await getDoc(commonRef);
     const saved = commonSnap.exists() ? (commonSnap.data().statements || []) : [];
-    // Текущие совпадения — берём из commonStatements если есть (с сервера)
-    const current = (matchUser.commonStatements || []);
+    const current = chatUser.commonStatements || [];
     if (saved.length > 0) {
-      // Есть сохранённые — добавляем новые
       const savedIds = new Set(saved.map(s => s.id));
       const newOnes = current.filter(s => !savedIds.has(s.id));
       const merged = [...saved, ...newOnes];
       setActiveChatCommon(merged);
-      if (newOnes.length > 0) {
-        await setDoc(commonRef, { statements: merged });
-      }
-      setSavedCommonCounts(prev => ({ ...prev, [matchUser.id]: merged.length }));
+      if (newOnes.length > 0) await setDoc(commonRef, { statements: merged });
+      setSavedCommonCounts(prev => ({ ...prev, [chatUser.id]: merged.length }));
     } else {
-      // Нет сохранённых — используем текущие
       setActiveChatCommon(current);
-      if (current.length > 0) {
-        await setDoc(commonRef, { statements: current });
-      }
-      setSavedCommonCounts(prev => ({ ...prev, [matchUser.id]: current.length }));
+      if (current.length > 0) await setDoc(commonRef, { statements: current });
+      setSavedCommonCounts(prev => ({ ...prev, [chatUser.id]: current.length }));
     }
   };
 
   const sendMessage = async () => {
     if (!chatInput.trim()) return;
-    const chatId = [user.uid, activeChat.id].sort().join("_");
-    await addDoc(collection(db, "chats", chatId, "messages"), {
-      from: user.uid, fromNick: nickname,
-      text: chatInput.trim(), ts: serverTimestamp(),
-    });
+    const text = chatInput.trim();
     setChatInput("");
+    try {
+      const fns = getFunctions(undefined, "europe-west1");
+      const sendMsg = httpsCallable(fns, "sendMessage");
+      await sendMsg({
+        toUid: activeChat.id,
+        text,
+        fromNick: nickname,
+        toNick: activeChat.nickname,
+        common: activeChatCommon.length,
+      });
+    } catch(e) {
+      console.error("sendMessage error:", e);
+    }
   };
 
   const filteredMatches = matches.filter(m =>
