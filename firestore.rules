@@ -1,0 +1,73 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ─── USERS ───────────────────────────────────────────────────────────────
+    match /users/{userId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.auth.uid == userId
+        && request.resource.data.keys().hasAll(['nickname', 'clicked'])
+        && request.resource.data.nickname is string
+        && request.resource.data.nickname.size() >= 2
+        && request.resource.data.clicked is list;
+      allow update: if request.auth != null
+        && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    // ─── STATEMENTS ──────────────────────────────────────────────────────────
+    match /statements/{statementId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.text is string
+        && request.resource.data.text.size() > 0
+        && request.resource.data.text.size() <= 500;
+      allow update: if request.auth != null && (
+        resource.data.authorId == request.auth.uid
+        || (request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['clicks', 'reports']))
+      );
+      allow delete: if request.auth != null && (
+        resource.data.authorId == request.auth.uid
+        || request.auth.uid == 'ezPSAlWRjZbqGGTIzWK2LRqLgR12'
+      );
+    }
+
+    // ─── STATEMENT USERS (инвертированный индекс) ────────────────────────────
+    match /statement_users/{statementId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null;
+    }
+
+    // ─── CHATS ───────────────────────────────────────────────────────────────
+    match /chats/{chatId} {
+      function isChatMember() {
+        let parts = chatId.split('_');
+        return request.auth.uid == parts[0] || request.auth.uid == parts[1];
+      }
+      match /messages/{messageId} {
+        allow read: if request.auth != null && isChatMember();
+        allow create: if request.auth != null
+          && isChatMember()
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.text is string
+          && request.resource.data.text.size() > 0;
+        allow update, delete: if false;
+      }
+      match /meta/{metaId} {
+        allow read: if request.auth != null && isChatMember();
+        allow write: if request.auth != null && isChatMember();
+      }
+    }
+
+    // ─── USER CHATS (список активных чатов) ──────────────────────────────────
+    match /user_chats/{userId} {
+      match /chats/{chatId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+  }
+}

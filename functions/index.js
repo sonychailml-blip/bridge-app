@@ -1,0 +1,295 @@
+const { setGlobalOptions } = require("firebase-functions");
+const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { getFirestore, FieldValue } = require("firebase-admin/firestore");
+const { initializeApp } = require("firebase-admin/app");
+
+initializeApp();
+setGlobalOptions({ maxInstances: 10, region: "europe-west1" });
+
+const db = getFirestore();
+
+// ─── MATCHING (инвертированный индекс) ───────────────────────────────────────
+// Использует statement_users для быстрого матчинга при любом количестве юзеров
+exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const userSnap = await db.collection("users").doc(uid).get();
+  if (!userSnap.exists) throw new HttpsError("not-found", "User not found");
+
+  const myClickedRaw = userSnap.data().clicked || [];
+  console.log("uid:", uid, "myClickedRaw.length:", myClickedRaw.length);
+  if (myClickedRaw.length === 0) return { matches: [] };
+
+  const myLocation = userSnap.data().location || null;
+  const useLocation = request.data?.useLocation || false;
+
+  // Фильтруем существующие утверждения чанками по 30
+  const existingIds = new Set();
+  for (let i = 0; i < myClickedRaw.length; i += 30) {
+    const chunk = myClickedRaw.slice(i, i + 30);
+    const snap = await db.collection("statements").where("__name__", "in", chunk).get();
+    snap.docs.forEach(d => existingIds.add(d.id));
+  }
+  const myClicked = myClickedRaw.filter(id => existingIds.has(id));
+  console.log("existingIds.size:", existingIds.size, "myClicked.length:", myClicked.length);
+  if (myClicked.length === 0) return { matches: [] };
+
+  // Используем инвертированный индекс — для каждого утверждения смотрим кто его выбрал
+  const userScores = {}; // uid -> { common: [], distKm }
+
+  for (const stmtId of myClicked) {
+    const suSnap = await db.collection("statement_users").doc(stmtId).get();
+    console.log("stmtId:", stmtId, "exists:", suSnap.exists, suSnap.exists ? "users:" + JSON.stringify(suSnap.data().users) : "");
+    if (!suSnap.exists) continue;
+    const users = suSnap.data().users || [];
+    for (const otherUid of users) {
+      if (otherUid === uid) continue;
+      if (!userScores[otherUid]) userScores[otherUid] = { commonIds: [] };
+      userScores[otherUid].commonIds.push(stmtId);
+    }
+  }
+
+  console.log("userScores keys:", Object.keys(userScores));
+  if (Object.keys(userScores).length === 0) return { matches: [] };
+
+  // Загружаем профили найденных пользователей чанками по 30
+  const matchUids = Object.keys(userScores);
+  const userProfiles = {};
+  for (let i = 0; i < matchUids.length; i += 30) {
+    const chunk = matchUids.slice(i, i + 30);
+    const snap = await db.collection("users").where("__name__", "in", chunk).get();
+    snap.docs.forEach(d => { userProfiles[d.id] = { id: d.id, ...d.data() }; });
+  }
+
+  // Формируем матчи
+  const matches = [];
+  for (const [otherUid, score] of Object.entries(userScores)) {
+    const u = userProfiles[otherUid];
+    if (!u || u.blocked === true) continue;
+
+    let distKm = null;
+    if (useLocation && myLocation && u.location) {
+      distKm = getDistanceKm(myLocation.lat, myLocation.lng, u.location.lat, u.location.lng);
+    }
+
+    matches.push({
+      id: otherUid,
+      nickname: u.nickname,
+      location: u.location || null,
+      common: score.commonIds.length,
+      commonIds: score.commonIds,
+      distKm,
+    });
+  }
+
+  // Загружаем тексты общих утверждений
+  const allCommonIds = [...new Set(matches.flatMap(m => m.commonIds))];
+  const commonStmts = {};
+  for (let i = 0; i < allCommonIds.length; i += 30) {
+    const chunk = allCommonIds.slice(i, i + 30);
+    const snap = await db.collection("statements").where("__name__", "in", chunk).get();
+    snap.docs.forEach(d => {
+      commonStmts[d.id] = { id: d.id, text: d.data().text, author: d.data().author };
+    });
+  }
+  matches.forEach(m => {
+    m.commonStatements = m.commonIds.map(id => commonStmts[id]).filter(Boolean);
+  });
+
+  // Сортируем
+  matches.sort((a, b) => {
+    if (useLocation && a.distKm !== null && b.distKm !== null) {
+      return (b.common * 10 - b.distKm * 0.01) - (a.common * 10 - a.distKm * 0.01);
+    }
+    return b.common - a.common;
+  });
+
+  return { matches };
+});
+
+// ─── TOGGLE CLICK ─────────────────────────────────────────────────────────────
+// Обновляет users.clicked, statements.clicks и statement_users
+exports.toggleClick = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const { statementId, action } = request.data;
+  if (!statementId || !["add", "remove"].includes(action)) {
+    throw new HttpsError("invalid-argument", "Invalid arguments");
+  }
+
+  const userRef = db.collection("users").doc(uid);
+  const stmtRef = db.collection("statements").doc(statementId);
+  const suRef = db.collection("statement_users").doc(statementId);
+
+  await db.runTransaction(async (t) => {
+    const stmtSnap = await t.get(stmtRef);
+    if (!stmtSnap.exists) throw new HttpsError("not-found", "Statement not found");
+
+    const currentClicks = stmtSnap.data().clicks || 0;
+    const newClicks = Math.max(0, currentClicks + (action === "add" ? 1 : -1));
+
+    t.update(stmtRef, { clicks: newClicks });
+    t.update(userRef, {
+      clicked: action === "add" ? FieldValue.arrayUnion(statementId) : FieldValue.arrayRemove(statementId)
+    });
+    t.set(suRef, {
+      users: action === "add" ? FieldValue.arrayUnion(uid) : FieldValue.arrayRemove(uid)
+    }, { merge: true });
+  });
+
+  return { success: true };
+});
+
+// ─── CLEANUP OLD STATEMENTS ──────────────────────────────────────────────────
+exports.cleanupOldStatements = onSchedule({
+  schedule: "0 3 * * *",
+  region: "europe-west1",
+  timeZone: "Europe/Moscow",
+}, async () => {
+  const MONTH = 30 * 24 * 60 * 60 * 1000;
+  const cutoff = new Date(Date.now() - MONTH);
+
+  const snap = await db.collection("statements").where("ts", "<", cutoff).limit(500).get();
+  if (snap.empty) { console.log("No old statements to delete"); return; }
+
+  const batch = db.batch();
+  snap.docs.forEach(doc => {
+    batch.delete(doc.ref);
+    // Удаляем и из инвертированного индекса
+    batch.delete(db.collection("statement_users").doc(doc.id));
+  });
+  await batch.commit();
+  console.log(`Deleted ${snap.size} old statements`);
+});
+
+// ─── RESET MAP ────────────────────────────────────────────────────────────────
+exports.resetMap = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) throw new HttpsError("not-found", "User not found");
+
+  const allClicked = userSnap.data().clicked || [];
+  if (allClicked.length === 0) return { success: true };
+
+  const batches = [];
+  let batch = db.batch();
+  let count = 0;
+
+  for (const id of allClicked) {
+    // Декрементируем счётчик
+    batch.update(db.collection("statements").doc(id), { clicks: FieldValue.increment(-1) });
+    // Убираем из инвертированного индекса
+    batch.update(db.collection("statement_users").doc(id), { users: FieldValue.arrayRemove(uid) });
+    count += 2;
+    if (count >= 490) {
+      batches.push(batch.commit());
+      batch = db.batch();
+      count = 0;
+    }
+  }
+
+  batch.update(userRef, { clicked: [] });
+  batches.push(batch.commit());
+  await Promise.all(batches);
+
+  return { success: true };
+});
+
+// ─── SEARCH STATEMENTS ────────────────────────────────────────────────────────
+exports.searchStatements = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const { query: searchQuery, limit: searchLimit = 50 } = request.data;
+  if (!searchQuery || searchQuery.trim().length < 2) return { results: [] };
+
+  const lower = searchQuery.toLowerCase().trim();
+  const REPORT_THRESHOLD = 3;
+
+  const snap = await db.collection("statements").orderBy("clicks", "desc").limit(1000).get();
+
+  const results = snap.docs
+    .map(d => ({ id: d.id, ...d.data() }))
+    .filter(s => s.text?.toLowerCase().includes(lower))
+    .filter(s => (s.reports || 0) < REPORT_THRESHOLD)
+    .slice(0, searchLimit)
+    .map(s => ({ id: s.id, text: s.text, author: s.author, clicks: s.clicks || 0, authorId: s.authorId }));
+
+  return { results };
+});
+
+
+// ─── SEND MESSAGE ─────────────────────────────────────────────────────────────
+// Отправляет сообщение и обновляет user_chats у обоих участников
+exports.sendMessage = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const { toUid, text, fromNick, toNick, common } = request.data;
+  if (!toUid || !text?.trim()) throw new HttpsError("invalid-argument", "Invalid arguments");
+
+  const chatId = [uid, toUid].sort().join("_");
+  const now = FieldValue.serverTimestamp();
+  const msgData = { from: uid, fromNick, text: text.trim(), ts: now };
+
+  // Добавляем сообщение
+  const msgRef = await db.collection("chats").doc(chatId).collection("messages").add(msgData);
+
+  // Обновляем user_chats у обоих участников атомарно
+  const batch = db.batch();
+
+  const myChatsRef = db.collection("user_chats").doc(uid).collection("chats").doc(chatId);
+  batch.set(myChatsRef, {
+    withUid: toUid,
+    withNick: toNick,
+    lastMsg: text.trim(),
+    lastFrom: uid,
+    lastTs: now,
+    unread: false,
+    common: common || 0,
+  }, { merge: true });
+
+  const theirChatsRef = db.collection("user_chats").doc(toUid).collection("chats").doc(chatId);
+  batch.set(theirChatsRef, {
+    withUid: uid,
+    withNick: fromNick,
+    lastMsg: text.trim(),
+    lastFrom: uid,
+    lastTs: now,
+    unread: true,
+    common: common || 0,
+  }, { merge: true });
+
+  await batch.commit();
+
+  return { success: true, msgId: msgRef.id };
+});
+
+// ─── MARK CHAT READ ───────────────────────────────────────────────────────────
+exports.markChatRead = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const { chatId } = request.data;
+  if (!chatId) throw new HttpsError("invalid-argument", "Invalid arguments");
+
+  await db.collection("user_chats").doc(uid).collection("chats").doc(chatId).update({ unread: false });
+  return { success: true };
+});
+
+// ─── HELPERS ─────────────────────────────────────────────────────────────────
+function getDistanceKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat / 2) ** 2 +
+    Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+    Math.sin(dLng / 2) ** 2;
+  return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+}
