@@ -1,8 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
-  collection, addDoc, query, orderBy, limit, startAfter,
+  collection, query, orderBy, limit, startAfter,
   getDocs, doc, writeBatch, increment, arrayUnion, arrayRemove,
-  serverTimestamp,
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebase";
@@ -128,17 +127,21 @@ export default function Feed({
     }
     const duplicate = statements.some(s => s.text.toLowerCase().trim() === newStatement.toLowerCase().trim());
     if (duplicate) { onNotif("This statement already exists"); return; }
-    const ref = await addDoc(collection(db, "statements"), {
-      text: newStatement.trim(), author: nickname, authorId: user.uid,
-      clicks: 1, reports: 0, ts: serverTimestamp(),
-    });
-    setClicked(prev => new Set([...prev, ref.id]));
-    const addBatch = writeBatch(db);
-    addBatch.update(doc(db, "users", user.uid), { clicked: arrayUnion(ref.id) });
-    addBatch.set(doc(db, "statement_users", ref.id), { users: arrayUnion(user.uid) }, { merge: true });
-    await addBatch.commit();
-    setNewStatement("");
-    onNotif("Statement published");
+    try {
+      const fns = getFunctions(undefined, "europe-west1");
+      const createStatement = httpsCallable(fns, "createStatement");
+      const result = await createStatement({ text: newStatement.trim() });
+      setClicked(prev => new Set([...prev, result.data.id]));
+      setNewStatement("");
+      onNotif("Statement published");
+    } catch (e) {
+      if (e.code === "functions/resource-exhausted") {
+        onNotif(e.message);
+      } else {
+        console.error("createStatement error:", e);
+        onNotif("Could not publish statement");
+      }
+    }
   };
 
   // smart sort

@@ -148,6 +148,54 @@ exports.toggleClick = onCall({ region: "europe-west1", cors: ["https://mybridgea
   return { success: true };
 });
 
+// ─── CREATE STATEMENT (rate-limited: 20/day UTC) ───────────────────────────────
+const DAILY_STATEMENT_LIMIT = 20;
+exports.createStatement = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const { text } = request.data;
+  if (typeof text !== "string" || text.trim().length === 0 || text.trim().length > 500) {
+    throw new HttpsError("invalid-argument", "Invalid statement");
+  }
+  const cleanText = text.trim();
+  const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+
+  const userRef = db.collection("users").doc(uid);
+  const stmtRef = db.collection("statements").doc();          // pre-generate id
+  const suRef = db.collection("statement_users").doc(stmtRef.id);
+
+  await db.runTransaction(async (t) => {
+    const userSnap = await t.get(userRef);
+    if (!userSnap.exists) throw new HttpsError("not-found", "User not found");
+    const userData = userSnap.data();
+    if (userData.blocked === true) throw new HttpsError("permission-denied", "Account suspended");
+
+    const sameDay = userData.statementsDate === today;
+    const count = sameDay ? (userData.statementsCount || 0) : 0;
+    if (count >= DAILY_STATEMENT_LIMIT) {
+      throw new HttpsError("resource-exhausted", "Daily limit reached. You can post 20 statements per day.");
+    }
+
+    t.set(stmtRef, {
+      text: cleanText,
+      author: userData.nickname,   // read server-side, not trusted from client
+      authorId: uid,
+      clicks: 1,
+      reports: 0,
+      ts: FieldValue.serverTimestamp(),
+    });
+    t.set(suRef, { users: FieldValue.arrayUnion(uid) }, { merge: true });
+    t.update(userRef, {
+      clicked: FieldValue.arrayUnion(stmtRef.id),
+      statementsCount: count + 1,
+      statementsDate: today,
+    });
+  });
+
+  return { id: stmtRef.id };
+});
+
 // ─── CLEANUP OLD STATEMENTS ──────────────────────────────────────────────────
 exports.cleanupOldStatements = onSchedule({
   schedule: "0 3 * * *",
@@ -237,8 +285,16 @@ exports.sendMessage = onCall({ region: "europe-west1", cors: ["https://mybridgea
   if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
 
   const callerSnap = await db.collection("users").doc(uid).get();
-  if (callerSnap.exists && callerSnap.data().blocked === true) {
+  const callerData = callerSnap.exists ? callerSnap.data() : {};
+  if (callerData.blocked === true) {
     throw new HttpsError("permission-denied", "Account suspended");
+  }
+
+  const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+  const sameDay = callerData.messagesDate === today;
+  const msgCount = sameDay ? (callerData.messagesCount || 0) : 0;
+  if (msgCount >= 100) {
+    throw new HttpsError("resource-exhausted", "Daily message limit reached.");
   }
 
   const { toUid, text, fromNick, toNick, common } = request.data;
@@ -275,6 +331,11 @@ exports.sendMessage = onCall({ region: "europe-west1", cors: ["https://mybridgea
     unread: true,
     common: common || 0,
   }, { merge: true });
+
+  batch.update(db.collection("users").doc(uid), {
+    messagesCount: msgCount + 1,
+    messagesDate: today,
+  });
 
   await batch.commit();
 
