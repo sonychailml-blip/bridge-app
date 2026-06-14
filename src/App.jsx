@@ -25,7 +25,6 @@ import Profile from "./components/Profile";
 import Chat from "./components/Chat";
 import Feed from "./components/Feed";
 import { useStatements } from "./hooks/useStatements";
-import { useUsers } from "./hooks/useUsers";
 import { useMatches } from "./hooks/useMatches";
 import { useChat } from "./hooks/useChat";
 import { useActiveChat } from "./hooks/useActiveChat";
@@ -60,7 +59,6 @@ export default function App() {
 
   // HOOKS
   const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
-  const { allUsers } = useUsers(user);
   const { matches, setMatches, newMatchDot, setNewMatchDot, fetchMatches } = useMatches(user, useLocation);
   const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user);
   const {
@@ -369,7 +367,6 @@ export default function App() {
                 reported={reported}
                 setReported={setReported}
                 matches={matches}
-                allUsers={allUsers}
                 searchQuery={searchQuery}
                 lastStmtDoc={lastStmtDoc}
                 setLastStmtDoc={setLastStmtDoc}

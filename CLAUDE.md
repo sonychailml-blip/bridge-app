@@ -29,7 +29,6 @@ There is no test suite. The frontend deploys to Vercel (SPA rewrite in `vercel.j
 ### State lives in App.jsx + hooks
 `App.jsx` owns top-level state (current user, nickname, clicked set, active screen, modals, notifications) and composes a set of hooks in `src/hooks/`, each wrapping one Firestore concern:
 - `useStatements` — real-time feed (latest 20, `onSnapshot`), client-side filters out reported (≥3 reports) and >30-day-old statements.
-- `useUsers` — all users (cap 500), used for @-mention suggestions.
 - `useMatches` — calls the `getMatches` callable on demand (not real-time); sets a "new match" dot when count grows.
 - `useChat` — real-time list of the user's conversations from `user_chats/{uid}/chats`.
 - `useActiveChat` — the currently open conversation: messages stream, sending, and "in common" panel state.

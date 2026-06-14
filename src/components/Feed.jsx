@@ -16,7 +16,7 @@ export default function Feed({
   statements, setStatements,
   clicked, setClicked,
   reported, setReported,
-  matches, allUsers,
+  matches,
   searchQuery,
   lastStmtDoc, setLastStmtDoc,
   hasMoreStmts, setHasMoreStmts,
@@ -65,10 +65,8 @@ export default function Feed({
         const fns = getFunctions(undefined, "europe-west1");
         const searchFn = httpsCallable(fns, "searchStatements");
         const result = await searchFn({ query: searchQuery, limit: 50 });
-        const blockedUserIds = new Set(allUsers.filter(u => u.blocked).map(u => u.id));
         const results = result.data.results
-          .filter(s => !reported.has(s.id))
-          .filter(s => !blockedUserIds.has(s.authorId));
+          .filter(s => !reported.has(s.id));
         setSearchResults(results);
       } catch(e) {
         console.error("search error:", e);
@@ -145,10 +143,8 @@ export default function Feed({
 
   // smart sort
   const matchUserIds = new Set(matches.map(m => m.id));
-  const blockedUserIds = new Set(allUsers.filter(u => u.blocked).map(u => u.id));
   const sortedStatements = [...statements]
     .filter(s => !reported.has(s.id))
-    .filter(s => !blockedUserIds.has(s.authorId))
     .sort((a, b) => {
       if (searchQuery.trim()) return (b.clicks||0) - (a.clicks||0);
       const aM = matchUserIds.has(a.authorId), bM = matchUserIds.has(b.authorId);
