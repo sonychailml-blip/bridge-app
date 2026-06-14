@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { doc, updateDoc, collection, onSnapshot } from "firebase/firestore";
+import { doc, collection, onSnapshot } from "firebase/firestore";
 import { db } from "../firebase";
+import { getFunctions, httpsCallable } from "firebase/functions";
 
 export default function Admin({ statements, allUsers, onDelete, onNotif }) {
   const [searchQuery, setSearchQuery] = useState("");
@@ -13,12 +14,16 @@ export default function Admin({ statements, allUsers, onDelete, onNotif }) {
   };
 
   const blockUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { blocked: true });
+    const fns = getFunctions(undefined, "europe-west1");
+    const setUserBlocked = httpsCallable(fns, "setUserBlocked");
+    await setUserBlocked({ targetUid: uid, blocked: true });
     onNotif("User blocked");
   };
 
   const unblockUser = async (uid) => {
-    await updateDoc(doc(db, "users", uid), { blocked: false });
+    const fns = getFunctions(undefined, "europe-west1");
+    const setUserBlocked = httpsCallable(fns, "setUserBlocked");
+    await setUserBlocked({ targetUid: uid, blocked: false });
     onNotif("User unblocked");
   };
 

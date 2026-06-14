@@ -293,6 +293,23 @@ exports.markChatRead = onCall({ region: "europe-west1", cors: ["https://mybridge
   return { success: true };
 });
 
+// ─── SET USER BLOCKED (admin only) ─────────────────────────────────────────────
+exports.setUserBlocked = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const ADMIN_UID = "ezPSAlWRjZbqGGTIzWK2LRqLgR12";
+  if (uid !== ADMIN_UID) throw new HttpsError("permission-denied", "Admins only");
+
+  const { targetUid, blocked } = request.data;
+  if (!targetUid || typeof blocked !== "boolean") {
+    throw new HttpsError("invalid-argument", "Invalid arguments");
+  }
+
+  await db.collection("users").doc(targetUid).update({ blocked });
+  return { success: true };
+});
+
 // ─── HELPERS ─────────────────────────────────────────────────────────────────
 function getDistanceKm(lat1, lng1, lat2, lng2) {
   const R = 6371;
