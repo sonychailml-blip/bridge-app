@@ -13,11 +13,21 @@ npm run lint      # ESLint over the whole repo
 # Cloud Functions (run from functions/)
 cd functions
 npm run serve     # Firebase emulator, functions only
-npm run deploy    # firebase deploy --only functions
+npm run deploy    # firebase deploy --only functions (wrapper; see Deploy below)
 npm run logs      # tail Cloud Functions logs
 ```
 
-There is no test suite. The frontend deploys to Vercel (SPA rewrite in `vercel.json`); Functions and Firestore rules deploy via the Firebase CLI to project `bridge-898a6` (region `europe-west1`). Production origin is `https://mybridgeapp.vercel.app` — this exact URL is hardcoded as the CORS allowlist on every callable function, so a new deployment domain requires editing `functions/index.js`.
+There is no test suite. Project is `bridge-898a6`, region `europe-west1`. Production origin is `https://mybridgeapp.vercel.app` — this exact URL is hardcoded as the CORS allowlist on every callable function, so a new deployment domain requires editing `functions/index.js`.
+
+### Deploy
+
+**ALWAYS run `npx vite build` and confirm it succeeds before deploying anything.** Build errors (e.g. `await` inside a non-`async` function) have repeatedly broken deploys. Never deploy on an unverified build.
+
+- **Frontend** → Vercel, which auto-deploys from GitHub. Deploy with the custom `git deploy` alias, or manually: `git add` / `git commit` / `git push`. The `git deploy` alias is the actual workflow used — the `npm run build`/`preview` scripts are for local verification, not deployment.
+- **Cloud Functions** → `firebase deploy --only functions` (or the `npm run deploy` wrapper in `functions/`).
+- **Firestore rules** → `firebase deploy --only firestore:rules`.
+
+When a **new** callable function is deployed for the first time, it must be manually set to **"Allow public access"** in the Firebase Console (the function's Cloud Run / security settings). Until that's done it returns CORS errors to the client even though the code and CORS allowlist are correct.
 
 ## Architecture
 
