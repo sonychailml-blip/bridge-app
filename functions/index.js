@@ -115,6 +115,11 @@ exports.toggleClick = onCall({ region: "europe-west1", cors: ["https://mybridgea
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
 
+  const callerSnap = await db.collection("users").doc(uid).get();
+  if (callerSnap.exists && callerSnap.data().blocked === true) {
+    throw new HttpsError("permission-denied", "Account suspended");
+  }
+
   const { statementId, action } = request.data;
   if (!statementId || !["add", "remove"].includes(action)) {
     throw new HttpsError("invalid-argument", "Invalid arguments");
@@ -230,6 +235,11 @@ exports.searchStatements = onCall({ region: "europe-west1", cors: ["https://mybr
 exports.sendMessage = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+
+  const callerSnap = await db.collection("users").doc(uid).get();
+  if (callerSnap.exists && callerSnap.data().blocked === true) {
+    throw new HttpsError("permission-denied", "Account suspended");
+  }
 
   const { toUid, text, fromNick, toNick, common } = request.data;
   if (!toUid || !text?.trim()) throw new HttpsError("invalid-argument", "Invalid arguments");

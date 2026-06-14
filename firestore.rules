@@ -23,7 +23,8 @@ service cloud.firestore {
         && request.resource.data.authorId == request.auth.uid
         && request.resource.data.text is string
         && request.resource.data.text.size() > 0
-        && request.resource.data.text.size() <= 500;
+        && request.resource.data.text.size() <= 500
+        && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.blocked != true;
       allow update: if request.auth != null && (
         resource.data.authorId == request.auth.uid
         || (request.resource.data.diff(resource.data).affectedKeys()
