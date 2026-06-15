@@ -116,7 +116,7 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
     const chunk = allCommonIds.slice(i, i + 30);
     const snap = await db.collection("statements").where("__name__", "in", chunk).get();
     snap.docs.forEach(d => {
-      commonStmts[d.id] = { id: d.id, text: d.data().text, author: d.data().author };
+      commonStmts[d.id] = { id: d.id, text: d.data().text, author: d.data().author, clicks: d.data().clicks || 0 };
     });
   }
   matches.forEach(m => {
