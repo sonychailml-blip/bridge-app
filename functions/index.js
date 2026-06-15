@@ -148,8 +148,12 @@ exports.toggleClick = onCall({ region: "europe-west1", cors: ["https://mybridgea
   return { success: true };
 });
 
-// ─── CREATE STATEMENT (rate-limited: 20/day UTC) ───────────────────────────────
-const DAILY_STATEMENT_LIMIT = 20;
+// ─── CREATE STATEMENT (rate-limited: 8/min + 150/day UTC) ──────────────────────
+// Двухуровневый лимит: в минуту (анти-бот) + в сутки (защита от медленного спама)
+const STATEMENT_PER_MINUTE_LIMIT = 8;
+const DAILY_STATEMENT_LIMIT = 150;
+const MESSAGE_PER_MINUTE_LIMIT = 20;
+const DAILY_MESSAGE_LIMIT = 300;
 exports.createStatement = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
@@ -171,10 +175,18 @@ exports.createStatement = onCall({ region: "europe-west1", cors: ["https://mybri
     const userData = userSnap.data();
     if (userData.blocked === true) throw new HttpsError("permission-denied", "Account suspended");
 
+    const nowMs = Date.now();
     const sameDay = userData.statementsDate === today;
     const count = sameDay ? (userData.statementsCount || 0) : 0;
+
+    // Лимит в минуту: оставляем только метки за последние 60 секунд
+    const recentTs = (userData.statementsRecentTs || []).filter(t => t > nowMs - 60000);
+    if (recentTs.length >= STATEMENT_PER_MINUTE_LIMIT) {
+      throw new HttpsError("resource-exhausted", "Slow down — you can post up to 8 statements per minute.");
+    }
+    // Суточный лимит (UTC)
     if (count >= DAILY_STATEMENT_LIMIT) {
-      throw new HttpsError("resource-exhausted", "Daily limit reached. You can post 20 statements per day.");
+      throw new HttpsError("resource-exhausted", "Daily limit reached (150 statements per day).");
     }
 
     t.set(stmtRef, {
@@ -188,6 +200,7 @@ exports.createStatement = onCall({ region: "europe-west1", cors: ["https://mybri
     t.set(suRef, { users: FieldValue.arrayUnion(uid) }, { merge: true });
     t.update(userRef, {
       clicked: FieldValue.arrayUnion(stmtRef.id),
+      statementsRecentTs: [...recentTs, nowMs],
       statementsCount: count + 1,
       statementsDate: today,
     });
@@ -291,10 +304,18 @@ exports.sendMessage = onCall({ region: "europe-west1", cors: ["https://mybridgea
   }
 
   const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+  const nowMs = Date.now();
   const sameDay = callerData.messagesDate === today;
   const msgCount = sameDay ? (callerData.messagesCount || 0) : 0;
-  if (msgCount >= 100) {
-    throw new HttpsError("resource-exhausted", "Daily message limit reached.");
+
+  // Лимит в минуту: оставляем только метки за последние 60 секунд
+  const recentTs = (callerData.messagesRecentTs || []).filter(t => t > nowMs - 60000);
+  if (recentTs.length >= MESSAGE_PER_MINUTE_LIMIT) {
+    throw new HttpsError("resource-exhausted", "Slow down — too many messages per minute.");
+  }
+  // Суточный лимит (UTC)
+  if (msgCount >= DAILY_MESSAGE_LIMIT) {
+    throw new HttpsError("resource-exhausted", "Daily message limit reached (300 per day).");
   }
 
   const { toUid, text, fromNick, toNick, common } = request.data;
@@ -333,6 +354,7 @@ exports.sendMessage = onCall({ region: "europe-west1", cors: ["https://mybridgea
   }, { merge: true });
 
   batch.update(db.collection("users").doc(uid), {
+    messagesRecentTs: [...recentTs, nowMs],
     messagesCount: msgCount + 1,
     messagesDate: today,
   });

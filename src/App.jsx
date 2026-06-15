@@ -68,7 +68,7 @@ export default function App() {
     chatInput, setChatInput,
     showCommon, setShowCommon,
     openChat, sendMessage,
-  } = useActiveChat(user, nickname, { setScreen, setNewMessageDot, setSavedCommonCounts });
+  } = useActiveChat(user, nickname, { setScreen, setNewMessageDot, setSavedCommonCounts, showNotif });
 
   // AUTH
   useEffect(() => {

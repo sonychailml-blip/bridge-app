@@ -11,7 +11,7 @@ import {
 import { db } from "../firebase";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
-export function useActiveChat(user, nickname, { setScreen, setNewMessageDot, setSavedCommonCounts }) {
+export function useActiveChat(user, nickname, { setScreen, setNewMessageDot, setSavedCommonCounts, showNotif }) {
   const [activeChat, setActiveChat] = useState(null);
   const [activeChatCommon, setActiveChatCommon] = useState([]); // cached common for active chat
   const [chatMessages, setChatMessages] = useState([]);
@@ -84,7 +84,11 @@ export function useActiveChat(user, nickname, { setScreen, setNewMessageDot, set
         common: activeChatCommon.length,
       });
     } catch(e) {
-      console.error("sendMessage error:", e);
+      if (e.code === "functions/resource-exhausted") {
+        showNotif?.(e.message);
+      } else {
+        console.error("sendMessage error:", e);
+      }
     }
   };
 
