@@ -121,17 +121,21 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
   }
   matches.forEach(m => {
     m.commonStatements = m.commonIds.map(id => commonStmts[id]).filter(Boolean);
+    // Вес общего утверждения тем выше, чем оно реже (меньше кликов).
+    // weight = 1 / log2(clicks + 2): clicks=1 → ~0.63, 10 → ~0.29, 1000 → ~0.10, 50000 → ~0.064
+    m.score = m.commonStatements.reduce((sum, s) => sum + 1 / Math.log2((s.clicks || 0) + 2), 0);
   });
 
-  // Сортируем
-  matches.sort((a, b) => {
-    if (useLocation && a.distKm !== null && b.distKm !== null) {
-      return (b.common * 10 - b.distKm * 0.01) - (a.common * 10 - a.distKm * 0.01);
-    }
-    return b.common - a.common;
-  });
+  // Сортируем по взвешенному score (редкие общие утверждения весят больше).
+  // Локация — мягкий бонус к ранжированию, не жёсткий фильтр: ~1e-4/км
+  // (расстояние подвигает ближних вверх, но не перебивает редкость совпадений).
+  const DIST_FACTOR = 0.0001;
+  const rankOf = (m) =>
+    (useLocation && m.distKm !== null) ? m.score - m.distKm * DIST_FACTOR : m.score;
+  matches.sort((a, b) => rankOf(b) - rankOf(a));
 
-  return { matches };
+  // Ограничиваем размер ответа топ-100 (без пагинации — счётчик "in common" остаётся точным)
+  return { matches: matches.slice(0, 100) };
 });
 
 // ─── TOGGLE CLICK ─────────────────────────────────────────────────────────────
