@@ -18,11 +18,15 @@ export default function Matches({
             <div className="list-nick">{m.nickname}</div>
             <div className="list-sub">
               <span>{m.common}</span> in common
-              {m.location && useLocation && savedLocation && (
-                <span style={{marginLeft:8,color:"#ccc"}}>
-                  · {m.location.name.split(',')[0] === savedLocation.name.split(',')[0] ? "same city" : m.location.name.split(',')[0]}
-                </span>
-              )}
+              {(() => {
+                const cityShown = m.location && useLocation && savedLocation;
+                const cityText = cityShown
+                  ? (m.location.name.split(',')[0] === savedLocation.name.split(',')[0] ? "same city" : m.location.name.split(',')[0])
+                  : null;
+                const parts = [cityText, m.age != null ? String(m.age) : null].filter(Boolean);
+                if (parts.length === 0) return null;
+                return <span style={{marginLeft:8,color:"#ccc"}}>· {parts.join(' · ')}</span>;
+              })()}
             </div>
           </div>
           <div className="list-right">

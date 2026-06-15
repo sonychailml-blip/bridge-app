@@ -48,10 +48,39 @@ export default function Profile({
     await updateDoc(doc(db, "users", user.uid), { ageMax: v });
   };
 
+  // Все три поля валидны: целые >= 18 и ageMin <= ageMax
+  const ageInputsValid = (a = ageInput, mn = ageMinInput, mx = ageMaxInput) => {
+    const av = parseAge(a), mnv = parseAge(mn), mxv = parseAge(mx);
+    return Number.isInteger(av) && av >= 18
+      && Number.isInteger(mnv) && mnv >= 18
+      && Number.isInteger(mxv) && mxv >= 18
+      && mnv <= mxv;
+  };
+
+  // Если фильтр включён, а данные стали невалидными — выключаем и сохраняем useAge=false
+  const autoDisableIfInvalid = (a, mn, mx) => {
+    if (useAge && !ageInputsValid(a, mn, mx)) {
+      setUseAge(false);
+      updateDoc(doc(db, "users", user.uid), { useAge: false }).catch(e => console.error(e));
+    }
+  };
+
   const toggleUseAge = async () => {
-    const next = !useAge;
-    setUseAge(next);
-    await updateDoc(doc(db, "users", user.uid), { useAge: next });
+    if (!useAge) {
+      // Включать можно только при полных валидных данных
+      if (!ageInputsValid()) {
+        setAgeError("Fill in your age and search range (whole numbers, 18+, from ≤ to) before enabling the age filter.");
+        return;
+      }
+      const a = parseAge(ageInput), mn = parseAge(ageMinInput), mx = parseAge(ageMaxInput);
+      setAgeError("");
+      setSavedAge(a); setSavedAgeMin(mn); setSavedAgeMax(mx);
+      setUseAge(true);
+      await updateDoc(doc(db, "users", user.uid), { age: a, ageMin: mn, ageMax: mx, useAge: true });
+    } else {
+      setUseAge(false);
+      await updateDoc(doc(db, "users", user.uid), { useAge: false });
+    }
   };
 
   const searchLocation = async (query) => {
@@ -152,18 +181,18 @@ export default function Profile({
         <div className="profile-section">
           <input className="loc-input" type="number" min="18" placeholder="your age…"
             value={ageInput}
-            onChange={e => setAgeInput(e.target.value)}
+            onChange={e => { setAgeInput(e.target.value); autoDisableIfInvalid(e.target.value, ageMinInput, ageMaxInput); }}
             onBlur={saveAge}
           />
           <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
             <input className="loc-input" type="number" min="18" placeholder="from"
               value={ageMinInput}
-              onChange={e => setAgeMinInput(e.target.value)}
+              onChange={e => { setAgeMinInput(e.target.value); autoDisableIfInvalid(ageInput, e.target.value, ageMaxInput); }}
               onBlur={saveAgeMin}
             />
             <input className="loc-input" type="number" min="18" placeholder="to"
               value={ageMaxInput}
-              onChange={e => setAgeMaxInput(e.target.value)}
+              onChange={e => { setAgeMaxInput(e.target.value); autoDisableIfInvalid(ageInput, ageMinInput, e.target.value); }}
               onBlur={saveAgeMax}
             />
           </div>

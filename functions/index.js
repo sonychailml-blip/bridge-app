@@ -77,13 +77,20 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
     const u = userProfiles[otherUid];
     if (!u || u.blocked === true) continue;
 
-    // Взаимный возрастной фильтр: обе стороны должны попадать в диапазон друг друга.
-    // Кандидат без заполненного возраста/диапазона не проходит проверку и исключается.
+    // Возрастной фильтр как взаимный шлюз видимости:
+    // юзеры с фильтром ON и юзеры с фильтром OFF никогда не видят друг друга.
+    // "Фильтр ON" = useAge true И валидные age/ageMin/ageMax (иначе считается OFF).
+    const candFilterOn = u.useAge === true
+      && Number.isFinite(u.age) && Number.isFinite(u.ageMin) && Number.isFinite(u.ageMax);
     if (ageFilterActive) {
-      const theyFitMe = Number.isFinite(u.age) && myAgeMin <= u.age && u.age <= myAgeMax;
-      const iFitThem = Number.isFinite(u.ageMin) && Number.isFinite(u.ageMax)
-        && u.ageMin <= myAge && myAge <= u.ageMax;
+      // Звонящий в пуле ON: только другие ON, прошедшие взаимную проверку диапазонов
+      if (!candFilterOn) continue;
+      const theyFitMe = myAgeMin <= u.age && u.age <= myAgeMax;
+      const iFitThem = u.ageMin <= myAge && myAge <= u.ageMax;
       if (!theyFitMe || !iFitThem) continue;
+    } else {
+      // Звонящий в пуле OFF: только другие OFF
+      if (candFilterOn) continue;
     }
 
     let distKm = null;
@@ -95,6 +102,7 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
       id: otherUid,
       nickname: u.nickname,
       location: u.location || null,
+      age: u.age ?? null,
       common: score.commonIds.length,
       commonIds: score.commonIds,
       distKm,
