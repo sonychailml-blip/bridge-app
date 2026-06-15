@@ -1,7 +1,7 @@
 import { useState, useCallback } from "react";
 import { getFunctions, httpsCallable } from "firebase/functions";
 
-export function useMatches(user, useLocation) {
+export function useMatches(user, useLocation, useAge) {
   const [matches, setMatches] = useState([]);
   const [newMatchDot, setNewMatchDot] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -13,7 +13,7 @@ export function useMatches(user, useLocation) {
     try {
       const functions = getFunctions(undefined, "europe-west1");
       const getMatchesFn = httpsCallable(functions, "getMatches");
-      const result = await getMatchesFn({ useLocation });
+      const result = await getMatchesFn({ useLocation, useAge });
       console.log("getMatches result:", JSON.stringify(result.data));
       const computed = result.data.matches || [];
       setMatches(prev => {
@@ -25,7 +25,7 @@ export function useMatches(user, useLocation) {
     } finally {
       setLoading(false);
     }
-  }, [user, useLocation]);
+  }, [user, useLocation, useAge]);
 
   return { matches, setMatches, newMatchDot, setNewMatchDot, loading, fetchMatches };
 }

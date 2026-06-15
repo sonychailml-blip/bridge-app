@@ -48,6 +48,10 @@ export default function App() {
   const [showProfile, setShowProfile] = useState(false);
   const [savedLocation, setSavedLocation] = useState(null);
   const [useLocation, setUseLocation] = useState(false);
+  const [savedAge, setSavedAge] = useState(null);
+  const [savedAgeMin, setSavedAgeMin] = useState(null);
+  const [savedAgeMax, setSavedAgeMax] = useState(null);
+  const [useAge, setUseAge] = useState(false);
   const [notification, setNotification] = useState(null);
   const [notifKey, setNotifKey] = useState(0);
   const [isBlocked, setIsBlocked] = useState(false);
@@ -59,7 +63,7 @@ export default function App() {
 
   // HOOKS
   const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
-  const { matches, setMatches, newMatchDot, setNewMatchDot, fetchMatches } = useMatches(user, useLocation);
+  const { matches, setMatches, newMatchDot, setNewMatchDot, fetchMatches } = useMatches(user, useLocation, useAge);
   const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user);
   const {
     activeChat,
@@ -83,6 +87,13 @@ export default function App() {
           if (snap.data().location) {
             setSavedLocation(snap.data().location);
             setUseLocation(true);
+          }
+          const d = snap.data();
+          if (d.age != null) setSavedAge(d.age);
+          if (d.ageMin != null) setSavedAgeMin(d.ageMin);
+          if (d.ageMax != null) setSavedAgeMax(d.ageMax);
+          if (d.useAge === true || d.age != null || d.ageMin != null || d.ageMax != null) {
+            setUseAge(true);
           }
         } else {
           // profile missing — ask user to complete registration
@@ -253,6 +264,14 @@ export default function App() {
             setUseLocation={setUseLocation}
             savedLocation={savedLocation}
             setSavedLocation={setSavedLocation}
+            useAge={useAge}
+            setUseAge={setUseAge}
+            savedAge={savedAge}
+            setSavedAge={setSavedAge}
+            savedAgeMin={savedAgeMin}
+            setSavedAgeMin={setSavedAgeMin}
+            savedAgeMax={savedAgeMax}
+            setSavedAgeMax={setSavedAgeMax}
             onClose={closeProfile}
             onLogout={handleLogout}
             onResetMap={() => setModal({type:"reset",fromCommon:false})}

@@ -25,6 +25,14 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
   const myLocation = userSnap.data().location || null;
   const useLocation = request.data?.useLocation || false;
 
+  // Возраст: взаимный фильтр (исключает, а не сортирует — в отличие от локации)
+  const myAge = userSnap.data().age;
+  const myAgeMin = userSnap.data().ageMin;
+  const myAgeMax = userSnap.data().ageMax;
+  const useAge = request.data?.useAge || false;
+  const ageFilterActive = useAge
+    && Number.isFinite(myAge) && Number.isFinite(myAgeMin) && Number.isFinite(myAgeMax);
+
   // Фильтруем существующие утверждения чанками по 30
   const existingIds = new Set();
   for (let i = 0; i < myClickedRaw.length; i += 30) {
@@ -68,6 +76,15 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
   for (const [otherUid, score] of Object.entries(userScores)) {
     const u = userProfiles[otherUid];
     if (!u || u.blocked === true) continue;
+
+    // Взаимный возрастной фильтр: обе стороны должны попадать в диапазон друг друга.
+    // Кандидат без заполненного возраста/диапазона не проходит проверку и исключается.
+    if (ageFilterActive) {
+      const theyFitMe = Number.isFinite(u.age) && myAgeMin <= u.age && u.age <= myAgeMax;
+      const iFitThem = Number.isFinite(u.ageMin) && Number.isFinite(u.ageMax)
+        && u.ageMin <= myAge && myAge <= u.ageMax;
+      if (!theyFitMe || !iFitThem) continue;
+    }
 
     let distKm = null;
     if (useLocation && myLocation && u.location) {

@@ -12,7 +12,10 @@ service cloud.firestore {
         && request.resource.data.nickname.size() >= 2
         && request.resource.data.clicked is list;
       allow update: if request.auth != null
-        && request.auth.uid == userId;
+        && request.auth.uid == userId
+        && (!('age' in request.resource.data) || (request.resource.data.age is number && request.resource.data.age >= 18))
+        && (!('ageMin' in request.resource.data) || (request.resource.data.ageMin is number && request.resource.data.ageMin >= 18))
+        && (!('ageMax' in request.resource.data) || (request.resource.data.ageMax is number && request.resource.data.ageMax >= 18));
       allow delete: if false;
     }
 

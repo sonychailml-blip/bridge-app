@@ -5,11 +5,54 @@ import { db } from "../firebase";
 export default function Profile({
   user, nickname, statements, clicked, setClicked, setStatements,
   useLocation, setUseLocation, savedLocation, setSavedLocation,
+  useAge, setUseAge, savedAge, setSavedAge,
+  savedAgeMin, setSavedAgeMin, savedAgeMax, setSavedAgeMax,
   onClose, onLogout, onResetMap,
 }) {
   const [pendingRemovals, setPendingRemovals] = useState(new Set());
   const [locationInput, setLocationInput] = useState(savedLocation?.name || "");
   const [locationSuggestions, setLocationSuggestions] = useState([]);
+  const [ageInput, setAgeInput] = useState(savedAge != null ? String(savedAge) : "");
+  const [ageMinInput, setAgeMinInput] = useState(savedAgeMin != null ? String(savedAgeMin) : "");
+  const [ageMaxInput, setAgeMaxInput] = useState(savedAgeMax != null ? String(savedAgeMax) : "");
+  const [ageError, setAgeError] = useState("");
+
+  // Возраст: только целые числа >= 18 (приложение 18+)
+  const parseAge = (s) => /^\d+$/.test(s.trim()) ? parseInt(s.trim(), 10) : NaN;
+
+  const saveAge = async () => {
+    const v = parseAge(ageInput);
+    if (!Number.isInteger(v) || v < 18) { setAgeError("Age must be a whole number, 18 or older."); return; }
+    setAgeError("");
+    setSavedAge(v);
+    await updateDoc(doc(db, "users", user.uid), { age: v });
+  };
+
+  const saveAgeMin = async () => {
+    const v = parseAge(ageMinInput);
+    if (!Number.isInteger(v) || v < 18) { setAgeError("Minimum age must be a whole number, 18 or older."); return; }
+    const max = Number.isInteger(parseAge(ageMaxInput)) ? parseAge(ageMaxInput) : savedAgeMax;
+    if (max != null && v > max) { setAgeError("Minimum age can't be greater than maximum age."); return; }
+    setAgeError("");
+    setSavedAgeMin(v);
+    await updateDoc(doc(db, "users", user.uid), { ageMin: v });
+  };
+
+  const saveAgeMax = async () => {
+    const v = parseAge(ageMaxInput);
+    if (!Number.isInteger(v) || v < 18) { setAgeError("Maximum age must be a whole number, 18 or older."); return; }
+    const min = Number.isInteger(parseAge(ageMinInput)) ? parseAge(ageMinInput) : savedAgeMin;
+    if (min != null && v < min) { setAgeError("Maximum age can't be less than minimum age."); return; }
+    setAgeError("");
+    setSavedAgeMax(v);
+    await updateDoc(doc(db, "users", user.uid), { ageMax: v });
+  };
+
+  const toggleUseAge = async () => {
+    const next = !useAge;
+    setUseAge(next);
+    await updateDoc(doc(db, "users", user.uid), { useAge: next });
+  };
 
   const searchLocation = async (query) => {
     if (query.length < 2) { setLocationSuggestions([]); return; }
@@ -102,6 +145,32 @@ export default function Profile({
           <div className="loc-toggle-row">
             <div className="loc-toggle-label">Use location in Matches</div>
             <div className={`loc-toggle ${useLocation?"":"off"}`} onClick={() => setUseLocation(v => !v)}/>
+          </div>
+        </div>
+
+        {/* AGE */}
+        <div className="profile-section">
+          <input className="loc-input" type="number" min="18" placeholder="your age…"
+            value={ageInput}
+            onChange={e => setAgeInput(e.target.value)}
+            onBlur={saveAge}
+          />
+          <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
+            <input className="loc-input" type="number" min="18" placeholder="from"
+              value={ageMinInput}
+              onChange={e => setAgeMinInput(e.target.value)}
+              onBlur={saveAgeMin}
+            />
+            <input className="loc-input" type="number" min="18" placeholder="to"
+              value={ageMaxInput}
+              onChange={e => setAgeMaxInput(e.target.value)}
+              onBlur={saveAgeMax}
+            />
+          </div>
+          {ageError && <div className="loc-current" style={{color:"#c00"}}>{ageError}</div>}
+          <div className="loc-toggle-row">
+            <div className="loc-toggle-label">Use age in Matches</div>
+            <div className={`loc-toggle ${useAge?"":"off"}`} onClick={toggleUseAge}/>
           </div>
         </div>
 
