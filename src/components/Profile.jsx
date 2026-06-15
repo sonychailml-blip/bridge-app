@@ -179,22 +179,31 @@ export default function Profile({
 
         {/* AGE */}
         <div className="profile-section">
-          <input className="loc-input" type="number" min="18" placeholder="your age…"
-            value={ageInput}
-            onChange={e => { setAgeInput(e.target.value); autoDisableIfInvalid(e.target.value, ageMinInput, ageMaxInput); }}
-            onBlur={saveAge}
-          />
-          <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
-            <input className="loc-input" type="number" min="18" placeholder="from"
-              value={ageMinInput}
-              onChange={e => { setAgeMinInput(e.target.value); autoDisableIfInvalid(ageInput, e.target.value, ageMaxInput); }}
-              onBlur={saveAgeMin}
-            />
-            <input className="loc-input" type="number" min="18" placeholder="to"
-              value={ageMaxInput}
-              onChange={e => { setAgeMaxInput(e.target.value); autoDisableIfInvalid(ageInput, ageMinInput, e.target.value); }}
-              onBlur={saveAgeMax}
-            />
+          <div className="age-row">
+            <div className="age-field age-field-own">
+              <div className="age-label">Your age</div>
+              <input className="loc-input" type="number" min="18"
+                value={ageInput}
+                onChange={e => { setAgeInput(e.target.value); autoDisableIfInvalid(e.target.value, ageMinInput, ageMaxInput); }}
+                onBlur={saveAge}
+              />
+            </div>
+            <div className="age-field age-field-range">
+              <div className="age-label">Show me people aged</div>
+              <div className="age-range-inputs">
+                <input className="loc-input" type="number" min="18"
+                  value={ageMinInput}
+                  onChange={e => { setAgeMinInput(e.target.value); autoDisableIfInvalid(ageInput, e.target.value, ageMaxInput); }}
+                  onBlur={saveAgeMin}
+                />
+                <span className="age-to">to</span>
+                <input className="loc-input" type="number" min="18"
+                  value={ageMaxInput}
+                  onChange={e => { setAgeMaxInput(e.target.value); autoDisableIfInvalid(ageInput, ageMinInput, e.target.value); }}
+                  onBlur={saveAgeMax}
+                />
+              </div>
+            </div>
           </div>
           {ageError && <div className="loc-current" style={{color:"#c00"}}>{ageError}</div>}
           <div className="loc-toggle-row">
