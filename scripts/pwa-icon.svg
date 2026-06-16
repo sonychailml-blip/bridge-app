@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!-- Master icon for H PWA. Rasterized to PNG via scripts/gen-pwa-icons.sh (needs librsvg / rsvg-convert). -->
+  <rect width="512" height="512" fill="#ffffff"/>
+  <g fill="#111111">
+    <!-- left stem -->
+    <rect x="141" y="148" width="34" height="216"/>
+    <!-- right stem -->
+    <rect x="337" y="148" width="34" height="216"/>
+    <!-- crossbar (thinner, vertically centred) -->
+    <rect x="158" y="246" width="196" height="20"/>
+    <!-- top serifs -->
+    <rect x="121" y="148" width="74" height="11"/>
+    <rect x="317" y="148" width="74" height="11"/>
+    <!-- bottom serifs -->
+    <rect x="121" y="353" width="74" height="11"/>
+    <rect x="317" y="353" width="74" height="11"/>
+  </g>
+</svg>
