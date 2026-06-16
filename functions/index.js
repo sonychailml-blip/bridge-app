@@ -25,6 +25,11 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
   const myLocation = userSnap.data().location || null;
   const useLocation = request.data?.useLocation || false;
 
+  // Локация: взаимный фильтр видимости (как возраст), плюс мягкая сортировка по расстоянию.
+  // "Локация ON" для звонящего = useLocation true И валидная локация (lat/lng).
+  const locationFilterActive = useLocation && myLocation
+    && Number.isFinite(myLocation.lat) && Number.isFinite(myLocation.lng);
+
   // Возраст: взаимный фильтр (исключает, а не сортирует — в отличие от локации)
   const myAge = userSnap.data().age;
   const myAgeMin = userSnap.data().ageMin;
@@ -91,6 +96,16 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
     } else {
       // Звонящий в пуле OFF: только другие OFF
       if (candFilterOn) continue;
+    }
+
+    // Локация как взаимный шлюз видимости (точно как возраст):
+    // location-ON видят только location-ON, location-OFF — только location-OFF.
+    const candLocationOn = u.useLocation === true
+      && u.location && Number.isFinite(u.location.lat) && Number.isFinite(u.location.lng);
+    if (locationFilterActive) {
+      if (!candLocationOn) continue;
+    } else {
+      if (candLocationOn) continue;
     }
 
     let distKm = null;

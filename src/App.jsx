@@ -88,17 +88,13 @@ export default function App() {
           setNickname(snap.data().nickname);
           setClicked(new Set(snap.data().clicked || []));
           setIsBlocked(snap.data().blocked === true);
-          if (snap.data().location) {
-            setSavedLocation(snap.data().location);
-            setUseLocation(true);
-          }
           const d = snap.data();
+          if (d.location) setSavedLocation(d.location);
+          setUseLocation(d.useLocation === true);
           if (d.age != null) setSavedAge(d.age);
           if (d.ageMin != null) setSavedAgeMin(d.ageMin);
           if (d.ageMax != null) setSavedAgeMax(d.ageMax);
-          if (d.useAge === true || d.age != null || d.ageMin != null || d.ageMax != null) {
-            setUseAge(true);
-          }
+          setUseAge(d.useAge === true);
           if (d.onboardingDone !== true) setShowOnboarding(true);
         } else {
           // profile missing — ask user to complete registration

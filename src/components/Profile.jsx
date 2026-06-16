@@ -17,6 +17,7 @@ export default function Profile({
   const [ageMinInput, setAgeMinInput] = useState(savedAgeMin != null ? String(savedAgeMin) : "");
   const [ageMaxInput, setAgeMaxInput] = useState(savedAgeMax != null ? String(savedAgeMax) : "");
   const [ageError, setAgeError] = useState("");
+  const [locationError, setLocationError] = useState("");
 
   // Возраст: только целые числа >= 18 (приложение 18+)
   const parseAge = (s) => /^\d+$/.test(s.trim()) ? parseInt(s.trim(), 10) : NaN;
@@ -103,14 +104,39 @@ export default function Profile({
     } catch(e) { setLocationSuggestions([]); }
   };
 
+  // Выбор города сохраняет только поле location и НЕ включает фильтр —
+  // включением/выключением управляет только toggleUseLocation (как saveAge vs toggleUseAge).
   const selectLocation = async (loc) => {
     setSavedLocation(loc);
     setLocationInput(loc.name);
     setLocationSuggestions([]);
-    setUseLocation(true);
     await updateDoc(doc(db, "users", user.uid), {
       location: { name: loc.name, lat: loc.lat, lng: loc.lng }
     });
+  };
+
+  // Если фильтр локации включён, а города нет — выключаем и сохраняем useLocation=false
+  const autoDisableLocationIfInvalid = (loc) => {
+    if (useLocation && !loc) {
+      setUseLocation(false);
+      updateDoc(doc(db, "users", user.uid), { useLocation: false }).catch(e => console.error(e));
+    }
+  };
+
+  const toggleUseLocation = async () => {
+    if (!useLocation) {
+      // Включать можно только при сохранённом городе
+      if (!savedLocation) {
+        setLocationError("Set your city before enabling the location filter.");
+        return;
+      }
+      setLocationError("");
+      setUseLocation(true);
+      await updateDoc(doc(db, "users", user.uid), { useLocation: true });
+    } else {
+      setUseLocation(false);
+      await updateDoc(doc(db, "users", user.uid), { useLocation: false });
+    }
   };
 
   const handleClose = () => {
@@ -175,9 +201,10 @@ export default function Profile({
               <span>{savedLocation.name}</span>
             </div>
           )}
+          {locationError && <div className="loc-current" style={{color:"#c00"}}>{locationError}</div>}
           <div className="loc-toggle-row">
             <div className="loc-toggle-label">Use location in Matches</div>
-            <div className={`loc-toggle ${useLocation?"":"off"}`} onClick={() => setUseLocation(v => !v)}/>
+            <div className={`loc-toggle ${useLocation?"":"off"}`} onClick={toggleUseLocation}/>
           </div>
         </div>
 
