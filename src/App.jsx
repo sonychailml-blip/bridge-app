@@ -22,6 +22,7 @@ import { getFunctions, httpsCallable } from "firebase/functions";
 import "./App.css";
 import Auth from "./components/Auth";
 import Profile from "./components/Profile";
+import Philosophy from "./components/Philosophy";
 import Chat from "./components/Chat";
 import Feed from "./components/Feed";
 import { useStatements } from "./hooks/useStatements";
@@ -46,6 +47,7 @@ export default function App() {
   const [modal, setModal] = useState(null);
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const [showPhilosophy, setShowPhilosophy] = useState(false);
   const [savedLocation, setSavedLocation] = useState(null);
   const [useLocation, setUseLocation] = useState(false);
   const [savedAge, setSavedAge] = useState(null);
@@ -278,6 +280,11 @@ export default function App() {
           />
         )}
 
+        {/* PHILOSOPHY PANEL */}
+        {showPhilosophy && user && (
+          <Philosophy onClose={() => setShowPhilosophy(false)} />
+        )}
+
         {/* MODAL */}
         {modal && (
           <div className="overlay">
@@ -311,7 +318,7 @@ export default function App() {
             <div className="nav">
               <div className="nav-top">
                 <div className="nav-nick" style={{visibility:"hidden"}}>{nickname}</div>
-                <div className="nav-logo" style={{cursor:"default"}}>
+                <div className="nav-logo" style={{cursor:"pointer"}} onClick={(e) => { e.stopPropagation(); if(showProfile) closeProfile(); setShowPhilosophy(v => !v); }}>
                   H
 
                 </div>
