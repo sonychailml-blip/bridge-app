@@ -23,6 +23,7 @@ import "./App.css";
 import Auth from "./components/Auth";
 import Profile from "./components/Profile";
 import Philosophy from "./components/Philosophy";
+import Onboarding from "./components/Onboarding";
 import Chat from "./components/Chat";
 import Feed from "./components/Feed";
 import { useStatements } from "./hooks/useStatements";
@@ -48,6 +49,7 @@ export default function App() {
   const [showLogoutMenu, setShowLogoutMenu] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showPhilosophy, setShowPhilosophy] = useState(false);
+  const [showOnboarding, setShowOnboarding] = useState(false);
   const [savedLocation, setSavedLocation] = useState(null);
   const [useLocation, setUseLocation] = useState(false);
   const [savedAge, setSavedAge] = useState(null);
@@ -97,6 +99,7 @@ export default function App() {
           if (d.useAge === true || d.age != null || d.ageMin != null || d.ageMax != null) {
             setUseAge(true);
           }
+          if (d.onboardingDone !== true) setShowOnboarding(true);
         } else {
           // profile missing — ask user to complete registration
           setProfileIncomplete(true);
@@ -127,6 +130,7 @@ export default function App() {
       });
       setNickname(completeNickInput.trim());
       setProfileIncomplete(false);
+      setShowOnboarding(true);
     } catch (e) {
       // retry on next login
       await signOut(auth);
@@ -140,6 +144,14 @@ export default function App() {
 
   const openProfile = () => setShowProfile(true);
   const closeProfile = () => setShowProfile(false);
+
+  const finishOnboarding = async () => {
+    setShowOnboarding(false);
+    if (user) {
+      try { await updateDoc(doc(db, "users", user.uid), { onboardingDone: true }); }
+      catch (e) { console.error(e); }
+    }
+  };
 
   const handleLogout = async () => {
     await signOut(auth);
@@ -250,6 +262,8 @@ export default function App() {
 
   return (
     <>
+
+      {showOnboarding && <Onboarding onDone={finishOnboarding} />}
 
       <div className="app" onClick={() => { if(showProfile) closeProfile(); }}>
 
