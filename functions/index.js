@@ -272,26 +272,33 @@ exports.resetMap = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.
   const allClicked = userSnap.data().clicked || [];
   if (allClicked.length === 0) return { success: true };
 
-  const batches = [];
+  // 1. Главное: очищаем clicked отдельным коммитом ДО декрементов,
+  //    чтобы отсутствие statements/statement_users не откатило эту запись.
+  await userRef.update({ clicked: [] });
+
+  // 2. Декрементируем счётчики и чистим инвертированный индекс — best-effort.
+  //    statement_users → set+merge: не бросает исключение на отсутствующем документе.
+  //    statements → update; ошибку коммита ловим, чтобы один удалённый документ
+  //    не сорвал остальные батчи.
+  const commits = [];
   let batch = db.batch();
   let count = 0;
+  const flush = () => {
+    commits.push(batch.commit().catch((e) => console.error("resetMap batch error:", e)));
+    batch = db.batch();
+    count = 0;
+  };
 
   for (const id of allClicked) {
     // Декрементируем счётчик
     batch.update(db.collection("statements").doc(id), { clicks: FieldValue.increment(-1) });
-    // Убираем из инвертированного индекса
-    batch.update(db.collection("statement_users").doc(id), { users: FieldValue.arrayRemove(uid) });
+    // Убираем из инвертированного индекса (merge не падает на отсутствующем документе)
+    batch.set(db.collection("statement_users").doc(id), { users: FieldValue.arrayRemove(uid) }, { merge: true });
     count += 2;
-    if (count >= 490) {
-      batches.push(batch.commit());
-      batch = db.batch();
-      count = 0;
-    }
+    if (count >= 490) flush();
   }
-
-  batch.update(userRef, { clicked: [] });
-  batches.push(batch.commit());
-  await Promise.all(batches);
+  if (count > 0) flush();
+  await Promise.all(commits);
 
   return { success: true };
 });

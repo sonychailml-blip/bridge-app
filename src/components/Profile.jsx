@@ -139,7 +139,7 @@ export default function Profile({
   };
 
   const ownStatements = statements.filter(s => s.authorId === user.uid && (clicked.has(s.id) || pendingRemovals.has(s.id)));
-  const agreedStatements = statements.filter(s => s.authorId !== user.uid && clicked.has(s.id) && !pendingRemovals.has(s.id));
+  const agreedStatements = statements.filter(s => s.authorId !== user.uid && (clicked.has(s.id) || pendingRemovals.has(s.id)));
 
   return (
     <>
