@@ -276,29 +276,41 @@ exports.resetMap = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.
   //    чтобы отсутствие statements/statement_users не откатило эту запись.
   await userRef.update({ clicked: [] });
 
-  // 2. Декрементируем счётчики и чистим инвертированный индекс — best-effort.
-  //    statement_users → set+merge: не бросает исключение на отсутствующем документе.
-  //    statements → update; ошибку коммита ловим, чтобы один удалённый документ
-  //    не сорвал остальные батчи.
+  // 2. Чистим инвертированный индекс — батчами set+merge (не падает на отсутствующих
+  //    документах). Декремент счётчиков statements вынесен в отдельные точечные
+  //    update'ы, чтобы один удалённый документ (статья истекла по 30-дневному сроку)
+  //    не откатил остальные — и не утянул за собой очистку индекса в том же батче.
   const commits = [];
   let batch = db.batch();
   let count = 0;
   const flush = () => {
-    commits.push(batch.commit().catch((e) => console.error("resetMap batch error:", e)));
+    commits.push(batch.commit().catch((e) => console.error("resetMap index batch error:", e)));
     batch = db.batch();
     count = 0;
   };
 
+  // Точечный декремент счётчика каждой статьи; NOT_FOUND по удалённой статье
+  // глотаем индивидуально, чтобы не сорвать остальные.
+  const decrements = [];
+
   for (const id of allClicked) {
-    // Декрементируем счётчик
-    batch.update(db.collection("statements").doc(id), { clicks: FieldValue.increment(-1) });
-    // Убираем из инвертированного индекса (merge не падает на отсутствующем документе)
+    // Инвертированный индекс — батчами (set+merge безопасен на отсутствующем документе)
     batch.set(db.collection("statement_users").doc(id), { users: FieldValue.arrayRemove(uid) }, { merge: true });
-    count += 2;
+    count += 1;
     if (count >= 490) flush();
+
+    // Счётчик clicks — отдельным write'ом с собственным catch
+    decrements.push(
+      db.collection("statements").doc(id).update({ clicks: FieldValue.increment(-1) })
+        .catch((e) => {
+          if (e.code === 5) return; // 5 = NOT_FOUND: статья удалена по сроку — пропускаем
+          console.error("resetMap decrement error:", id, e);
+        })
+    );
   }
   if (count > 0) flush();
-  await Promise.all(commits);
+
+  await Promise.allSettled([...commits, ...decrements]);
 
   return { success: true };
 });
