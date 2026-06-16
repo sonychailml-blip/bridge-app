@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { doc, updateDoc, writeBatch, arrayRemove, arrayUnion, increment } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
+import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebase";
 
 export default function Profile({
@@ -114,16 +115,19 @@ export default function Profile({
 
   const handleClose = () => {
     if (pendingRemovals.size > 0) {
+      const ids = [...pendingRemovals];                 // снимок до сброса state
       const newClicked = new Set([...clicked].filter(id => !pendingRemovals.has(id)));
       setClicked(newClicked);
       setStatements(prev => prev.map(s => pendingRemovals.has(s.id) ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
-      const batch = writeBatch(db);
-      pendingRemovals.forEach(id => {
-        batch.update(doc(db, "users", user.uid), { clicked: arrayRemove(id) });
-        batch.update(doc(db, "statements", id), { clicks: increment(-1) });
-        batch.set(doc(db, "statement_users", id), { users: arrayRemove(user.uid) }, { merge: true });
+      // Снимаем клики через серверную функцию (клиент больше не пишет в индекс напрямую).
+      // Панель закрывается сразу; вызовы летят в фоне, ошибки только логируем —
+      // следующая загрузка фида/матчей отразит фактическое состояние.
+      const fns = getFunctions(undefined, "europe-west1");
+      const toggleClickFn = httpsCallable(fns, "toggleClick");
+      ids.forEach(id => {
+        toggleClickFn({ statementId: id, action: "remove" })
+          .catch(e => console.error("toggleClick remove error:", e));
       });
-      batch.commit().catch(e => console.error(e));
       setPendingRemovals(new Set());
     }
     setLocationSuggestions([]);

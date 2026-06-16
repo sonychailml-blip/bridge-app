@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import {
   collection, query, orderBy, limit, startAfter,
-  getDocs, doc, writeBatch, increment, arrayUnion, arrayRemove,
+  getDocs,
 } from "firebase/firestore";
 import { getFunctions, httpsCallable } from "firebase/functions";
 import { db } from "../firebase";
@@ -98,25 +98,33 @@ export default function Feed({
 
   const toggleClick = async (id) => {
     if (window._longPressed) { window._longPressed = false; return; }
-    const userRef = doc(db, "users", user.uid);
-    const stmtRef = doc(db, "statements", id);
-    const suRef = doc(db, "statement_users", id);
-    const batch = writeBatch(db);
-    if (clicked.has(id)) {
+    const wasClicked = clicked.has(id);
+    const action = wasClicked ? "remove" : "add";
+    // снимки для отката при ошибке
+    const prevClicked = clicked;
+    const prevClicks = statements.find(s => s.id === id)?.clicks;
+
+    // оптимистично обновляем UI
+    if (wasClicked) {
       setClicked(prev => { const n = new Set(prev); n.delete(id); return n; });
       setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
-      batch.update(userRef, { clicked: arrayRemove(id) });
-      batch.update(stmtRef, { clicks: increment(-1) });
-      batch.set(suRef, { users: arrayRemove(user.uid) }, { merge: true });
     } else {
       setClicked(prev => new Set([...prev, id]));
       setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: (s.clicks||0) + 1 } : s));
-      batch.update(userRef, { clicked: arrayUnion(id) });
-      batch.update(stmtRef, { clicks: increment(1) });
-      batch.set(suRef, { users: arrayUnion(user.uid) }, { merge: true });
       onNotif("Added to your map");
     }
-    await batch.commit();
+
+    try {
+      const fns = getFunctions(undefined, "europe-west1");
+      const toggleClickFn = httpsCallable(fns, "toggleClick");
+      await toggleClickFn({ statementId: id, action });
+    } catch (e) {
+      console.error("toggleClick error:", e);
+      // откат оптимистичных изменений к прежнему состоянию
+      setClicked(new Set(prevClicked));
+      setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: prevClicks ?? s.clicks } : s));
+      onNotif("Couldn't save — try again");
+    }
   };
 
   const addStatement = async () => {
