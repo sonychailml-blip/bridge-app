@@ -258,21 +258,86 @@ exports.cleanupOldStatements = onSchedule({
   schedule: "0 3 * * *",
   region: "europe-west1",
   timeZone: "Europe/Moscow",
+  timeoutSeconds: 300,            // default 60s — даём циклу запас (расписание/таймзона без изменений)
 }, async () => {
   const MONTH = 30 * 24 * 60 * 60 * 1000;
   const cutoff = new Date(Date.now() - MONTH);
 
-  const snap = await db.collection("statements").where("ts", "<", cutoff).limit(500).get();
-  if (snap.empty) { console.log("No old statements to delete"); return; }
+  const CHUNK = 500;                      // статей за один запрос
+  const MAX_OPS_PER_BATCH = 500;          // жёсткий лимит Firestore
+  const MAX_STATEMENTS_PER_RUN = 10000;   // вторичный предел; остаток добьётся в следующий запуск
+  const TIME_BUDGET_MS = 270000;          // не начинаем новый чанк за ~30с до 300с таймаута
+  const startedAt = Date.now();
 
-  const batch = db.batch();
-  snap.docs.forEach(doc => {
-    batch.delete(doc.ref);
-    // Удаляем и из инвертированного индекса
-    batch.delete(db.collection("statement_users").doc(doc.id));
-  });
-  await batch.commit();
-  console.log(`Deleted ${snap.size} old statements`);
+  // Батчер со счётчиком операций: гарантирует, что ни один батч не превысит 500 ops.
+  const commits = [];
+  let batch = db.batch();
+  let ops = 0;
+  const flush = () => {
+    if (ops === 0) return;
+    commits.push(batch.commit().catch(e => console.error("cleanup batch error:", e)));
+    batch = db.batch();
+    ops = 0;
+  };
+  const addOp = (apply) => {
+    if (ops >= MAX_OPS_PER_BATCH) flush();   // флашим ДО добавления — батч максимум 500
+    apply(batch);
+    ops += 1;
+  };
+
+  let totalStatements = 0;
+  let totalClickRefsCleaned = 0;
+
+  while (true) {
+    if (totalStatements >= MAX_STATEMENTS_PER_RUN) {
+      console.log(`Hit per-run cap (${MAX_STATEMENTS_PER_RUN}); remainder handled next run`);
+      break;
+    }
+    if (Date.now() - startedAt > TIME_BUDGET_MS) {
+      console.log("Hit time budget; remainder handled next run");
+      break;
+    }
+
+    const snap = await db.collection("statements").where("ts", "<", cutoff).limit(CHUNK).get();
+    if (snap.empty) break;
+
+    // 1. ЧИТАЕМ инвертированный индекс ДО удаления — иначе потеряем список, кого чистить.
+    //    getAll корректно возвращает несуществующие документы (exists === false).
+    const suRefs = snap.docs.map(d => db.collection("statement_users").doc(d.id));
+    let suSnaps;
+    try {
+      suSnaps = await db.getAll(...suRefs);
+    } catch (e) {
+      console.error("cleanup getAll statement_users error, fallback to per-doc:", e);
+      suSnaps = [];
+      for (const ref of suRefs) {
+        try { suSnaps.push(await ref.get()); }
+        catch (err) { console.error("cleanup single su get error:", err); suSnaps.push(null); }
+      }
+    }
+    const usersByStmt = {};
+    suSnaps.forEach(s => { if (s && s.exists) usersByStmt[s.id] = s.data().users || []; });
+
+    // 2. ПИШЕМ: удаляем statement + index и чистим clicked у каждого кликнувшего юзера.
+    for (const d of snap.docs) {
+      addOp(b => b.delete(d.ref));                                        // удалить statement
+      addOp(b => b.delete(db.collection("statement_users").doc(d.id)));   // удалить index
+      const users = usersByStmt[d.id] || [];                             // нет su-дока → []
+      for (const uid of users) {
+        addOp(b => b.update(db.collection("users").doc(uid), { clicked: FieldValue.arrayRemove(d.id) }));
+        totalClickRefsCleaned += 1;
+      }
+      totalStatements += 1;
+    }
+
+    // Коммитим чанк ДО следующей выборки: иначе запрос вернёт те же статьи → бесконечный цикл.
+    flush();
+    await Promise.all(commits.splice(0));
+
+    if (snap.size < CHUNK) break;   // последняя (неполная) пачка
+  }
+
+  console.log(`Deleted ${totalStatements} old statements; cleaned ${totalClickRefsCleaned} clicked references across users`);
 });
 
 // ─── RESET MAP ────────────────────────────────────────────────────────────────
