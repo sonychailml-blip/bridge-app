@@ -169,6 +169,7 @@ export default function Feed({
   return (
     <>
       <div className="search-bar">
+        <div className="statement-row">
         <input className="search-input" placeholder="write a statement about yourself… or search"
           value={newStatement}
           onChange={async e => {
@@ -191,6 +192,8 @@ export default function Feed({
           }}
           onKeyDown={e => { if(e.key === "Enter") { addStatement(); setSuggestions([]); } }}
         />
+        <button className="add-btn" onClick={addStatement}>Publish</button>
+        </div>
         {suggestions.length > 0 && (
           <div ref={suggestionsRef} style={{borderTop:"1px solid #f0f0f0",marginTop:8}}>
             <div style={{padding:"8px 0 4px",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>similar statements</div>
@@ -208,9 +211,7 @@ export default function Feed({
             </div>
           </div>
         )}
-        <div style={{display:"flex",justifyContent:"center",marginTop:20,paddingBottom:16,borderBottom:"1px solid #f0f0f0"}}>
-          <button className="add-btn" onClick={addStatement}>Publish</button>
-        </div>
+        <div style={{borderBottom:"1px solid #f0f0f0",marginTop:16}}/>
       </div>
 
       <div className="feed-section">

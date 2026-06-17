@@ -7,9 +7,6 @@ export default function Messages({
 
   return (
     <div className="list-section">
-      <div className="section-header">
-        <div className="section-sub">your conversations</div>
-      </div>
       {chatList.length === 0 ? (
         <div className="empty"><p>no conversations yet<br/>find matches and start writing</p></div>
       ) : filtered.length === 0 ? (

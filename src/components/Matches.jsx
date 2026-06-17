@@ -9,9 +9,6 @@ export default function Matches({
 
   return (
     <div className="list-section">
-      <div className="section-header">
-        <div className="section-sub">people who share your words</div>
-      </div>
       {matches.length === 0 ? (
         <div className="empty"><p>click statements in the feed<br/>to find people who think like you</p></div>
       ) : filteredMatches.length === 0 ? (

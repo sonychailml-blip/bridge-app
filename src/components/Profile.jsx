@@ -182,10 +182,13 @@ export default function Profile({
 
         {/* LOCATION */}
         <div className="profile-section">
-          <input className="loc-input" placeholder="enter your city…"
-            value={locationInput}
-            onChange={e => { setLocationInput(e.target.value); searchLocation(e.target.value); }}
-          />
+          <div className="loc-row">
+            <input className="loc-input" placeholder="enter your city…"
+              value={locationInput}
+              onChange={e => { setLocationInput(e.target.value); searchLocation(e.target.value); }}
+            />
+            <div className={`loc-toggle ${useLocation?"":"off"}`} onClick={toggleUseLocation}/>
+          </div>
           {locationSuggestions.length > 0 && (
             <div className="loc-suggestions">
               {locationSuggestions.map((loc, i) => (
@@ -202,10 +205,6 @@ export default function Profile({
             </div>
           )}
           {locationError && <div className="loc-current" style={{color:"#c00"}}>{locationError}</div>}
-          <div className="loc-toggle-row">
-            <div className="loc-toggle-label">Use location in Matches</div>
-            <div className={`loc-toggle ${useLocation?"":"off"}`} onClick={toggleUseLocation}/>
-          </div>
         </div>
 
         {/* AGE */}
@@ -235,12 +234,12 @@ export default function Profile({
                 />
               </div>
             </div>
+            <div className="age-field age-field-toggle">
+              <div className="age-label">Use</div>
+              <div className={`loc-toggle ${useAge?"":"off"}`} onClick={toggleUseAge}/>
+            </div>
           </div>
           {ageError && <div className="loc-current" style={{color:"#c00"}}>{ageError}</div>}
-          <div className="loc-toggle-row">
-            <div className="loc-toggle-label">Use age in Matches</div>
-            <div className={`loc-toggle ${useAge?"":"off"}`} onClick={toggleUseAge}/>
-          </div>
         </div>
 
         {/* RESET */}
