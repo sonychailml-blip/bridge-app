@@ -40,8 +40,8 @@ body{background:#fff;overflow-y:scroll;}
 .logout-item:hover{color:#111;}
 
 /* SEARCH */
-.search-bar{padding:12px 24px 0;position:sticky;top:93px;background:#fff;z-index:9;}
-.search-input{width:100%;border:none;border-bottom:1px solid #e8e8e8;padding:8px 0 10px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
+.search-bar{padding:12px 24px 16px;position:sticky;top:93px;background:#fff;z-index:9;border-bottom:1px solid #f5f5f5;}
+.search-input{width:100%;border:none;padding:8px 0 10px;font-family:'Lato',sans-serif;font-weight:300;font-size:13px;outline:none;background:transparent;color:#111;}
 .search-input::placeholder{color:#ddd;}
 
 /* CHAT header */

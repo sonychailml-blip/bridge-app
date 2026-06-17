@@ -211,7 +211,6 @@ export default function Feed({
             </div>
           </div>
         )}
-        <div style={{borderBottom:"1px solid #f5f5f5",marginTop:16}}/>
       </div>
 
       <div className="feed-section">
