@@ -1,7 +1,7 @@
 import { useState } from "react";
 
 export default function Matches({
-  matches, filteredMatches, searchQuery,
+  matches,
   useLocation, savedLocation, useAge,
   onOpenChat,
 }) {
@@ -11,9 +11,7 @@ export default function Matches({
     <div className="list-section">
       {matches.length === 0 ? (
         <div className="empty"><p>click statements in the feed<br/>to find people who think like you</p></div>
-      ) : filteredMatches.length === 0 ? (
-        <div className="empty"><p>no match found for "{searchQuery}"</p></div>
-      ) : filteredMatches.map(m => (
+      ) : matches.map(m => (
         <div key={m.id}>
           <div className="list-item">
             <div className="list-item-left">

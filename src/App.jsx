@@ -209,9 +209,6 @@ export default function App() {
     }
   };
 
-  const filteredMatches = matches.filter(m =>
-    searchQuery === "" || m.nickname?.toLowerCase().includes(searchQuery.toLowerCase())
-  );
 
   if (loading) return (
     <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,letterSpacing:2,fontSize:12,textTransform:"uppercase",color:"#bbb"}}>
@@ -381,14 +378,6 @@ export default function App() {
               </div>
             )}
 
-            {/* search bar — not in chat */}
-            {screen !== "chat" && screen !== "feed" && (
-              <div className="search-bar">
-                <input className="search-input"
-                  placeholder={screen==="matches" ? "search by nickname…" : "search conversations…"}
-                  value={searchQuery} onChange={e => setSearchQuery(e.target.value)} />
-              </div>
-            )}
 
             {/* FEED */}
             {screen==="feed" && (
@@ -417,8 +406,6 @@ export default function App() {
             {screen==="matches" && (
               <Matches
                 matches={matches}
-                filteredMatches={filteredMatches}
-                searchQuery={searchQuery}
                 useLocation={useLocation}
                 savedLocation={savedLocation}
                 useAge={useAge}
@@ -431,7 +418,6 @@ export default function App() {
               <Messages
                 user={user}
                 chatList={chatList}
-                searchQuery={searchQuery}
                 savedCommonCounts={savedCommonCounts}
                 onOpenChat={openChat}
               />
