@@ -2,7 +2,7 @@ import { useState } from "react";
 
 export default function Matches({
   matches, filteredMatches, searchQuery,
-  useLocation, savedLocation,
+  useLocation, savedLocation, useAge,
   onOpenChat,
 }) {
   const [expandedId, setExpandedId] = useState(null);
@@ -31,7 +31,8 @@ export default function Matches({
                   const cityText = cityShown
                     ? (m.location.name.split(',')[0] === savedLocation.name.split(',')[0] ? "same city" : m.location.name.split(',')[0])
                     : null;
-                  const parts = [cityText, m.age != null ? String(m.age) : null].filter(Boolean);
+                  const ageShown = useAge && m.age != null;
+                  const parts = [cityText, ageShown ? String(m.age) : null].filter(Boolean);
                   if (parts.length === 0) return null;
                   return <span style={{marginLeft:8,color:"#ccc"}}>· {parts.join(' · ')}</span>;
                 })()}

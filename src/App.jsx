@@ -421,6 +421,7 @@ export default function App() {
                 searchQuery={searchQuery}
                 useLocation={useLocation}
                 savedLocation={savedLocation}
+                useAge={useAge}
                 onOpenChat={openChat}
               />
             )}
