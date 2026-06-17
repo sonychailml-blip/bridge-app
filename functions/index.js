@@ -478,7 +478,7 @@ exports.sendMessage = onCall({ region: "europe-west1", cors: ["https://mybridgea
     lastFrom: uid,
     lastTs: now,
     unread: true,
-    common: common || 0,
+    // common НЕ пишем — у получателя свой личный счётчик (in-common персональный)
   }, { merge: true });
 
   batch.update(db.collection("users").doc(uid), {

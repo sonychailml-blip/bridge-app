@@ -51,13 +51,13 @@ export function useActiveChat(user, nickname, clicked, statements, { setScreen, 
       markRead({ chatId });
     } catch(e) {}
 
-    // 1. История (снимок) — сохраняем целиком, ничего не удаляем
-    const commonRef = doc(db, "chats", chatId, "meta", "common");
-    const commonSnap = await getDoc(commonRef);
-    const saved = commonSnap.exists() ? (commonSnap.data().statements || []) : [];
+    // 1. История — личный снимок в собственном user_chats-доке (правила: только владелец)
+    const personalRef = doc(db, "user_chats", user.uid, "chats", chatId);
+    const summarySnap = await getDoc(personalRef);
+    const saved = summarySnap.exists() ? (summarySnap.data().commonStatements || []) : [];
     const savedIds = new Set(saved.map(s => s.id));
 
-    // 2. Текущее реальное пересечение (работает и из Matches, и из Messages)
+    // 2. Текущее реальное пересечение (объективно; работает и из Matches, и из Messages)
     let current = [];
     try {
       current = await computeLiveCommon(chatUser.id, clicked, statements);
@@ -70,7 +70,11 @@ export function useActiveChat(user, nickname, clicked, statements, { setScreen, 
     const merged = newOnes.length > 0 ? [...saved, ...newOnes] : saved;
 
     setActiveChatCommon(merged);
-    if (newOnes.length > 0) await setDoc(commonRef, { statements: merged });
+    // merge:true — не затираем withUid/lastMsg/lastTs/unread. Не создаём пустой
+    // док для свежего чата без сообщений и без общего (иначе лишний скрытый док).
+    if (newOnes.length > 0 || summarySnap.exists()) {
+      await setDoc(personalRef, { commonStatements: merged, common: merged.length }, { merge: true });
+    }
     setSavedCommonCounts(prev => ({ ...prev, [chatUser.id]: merged.length }));
   };
 

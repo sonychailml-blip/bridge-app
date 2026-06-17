@@ -193,7 +193,11 @@ export default function App() {
         // reset = ЗАМЕНА на текущее реальное пересечение (обрезает устаревшие).
         const current = await computeLiveCommon(activeChat.id, clicked, statements);
         setActiveChatCommon(current);
-        await setDoc(doc(db, "chats", chatId, "meta", "common"), { statements: current });
+        await setDoc(
+          doc(db, "user_chats", user.uid, "chats", chatId),
+          { commonStatements: current, common: current.length },
+          { merge: true }
+        );
         setSavedCommonCounts(prev => ({ ...prev, [activeChat.id]: current.length }));
         showNotif("Common ground refreshed");
       } catch (e) {
