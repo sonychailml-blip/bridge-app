@@ -162,13 +162,13 @@ body{background:#fff;overflow-y:scroll;}
 .loc-toggle.off::after{right:19px;}
 .age-row{display:flex;gap:14px;align-items:flex-end;}
 .age-field{display:flex;flex-direction:column;min-width:0;}
-.age-field-own{width:56px;flex-shrink:0;}
-.age-field-range{flex:1;min-width:0;}
+.age-field-own{flex-shrink:0;}
+.age-field-range{flex-shrink:0;min-width:0;}
 .age-label{font-size:9px;letter-spacing:1px;text-transform:uppercase;color:#ccc;margin-bottom:8px;}
+.age-row .loc-input{width:42px;flex-shrink:0;text-align:center;}
 .age-range-inputs{display:flex;align-items:center;gap:8px;}
-.age-range-inputs .loc-input{min-width:0;}
 .age-to{font-size:11px;color:#999;flex-shrink:0;}
-.age-field-toggle{flex-shrink:0;}
+.age-field-toggle{flex-shrink:0;margin-left:auto;}
 .age-field-toggle .loc-toggle{margin-bottom:4px;}
 .profile-stmt{display:flex;align-items:center;justify-content:space-between;padding:11px 0;border-bottom:1px solid #f8f8f8;gap:12px;}
 .profile-stmt-text{font-size:14px;color:#111;line-height:1.4;flex:1;}

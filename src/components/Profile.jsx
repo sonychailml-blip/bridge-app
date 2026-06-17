@@ -182,6 +182,7 @@ export default function Profile({
 
         {/* LOCATION */}
         <div className="profile-section">
+          <div className="age-label">Location</div>
           <div className="loc-row">
             <input className="loc-input" placeholder="enter your city…"
               value={locationInput}
@@ -196,12 +197,6 @@ export default function Profile({
                   {loc.name}
                 </div>
               ))}
-            </div>
-          )}
-          {savedLocation && locationSuggestions.length === 0 && (
-            <div className="loc-current">
-              <div className="loc-dot"/>
-              <span>{savedLocation.name}</span>
             </div>
           )}
           {locationError && <div className="loc-current" style={{color:"#c00"}}>{locationError}</div>}
@@ -235,7 +230,6 @@ export default function Profile({
               </div>
             </div>
             <div className="age-field age-field-toggle">
-              <div className="age-label">Use</div>
               <div className={`loc-toggle ${useAge?"":"off"}`} onClick={toggleUseAge}/>
             </div>
           </div>
