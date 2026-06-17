@@ -39,7 +39,7 @@ export default function Admin({ statements, allUsers, onDelete, onNotif }) {
       </div>
 
       {/* STATS */}
-      <div style={{display:"flex",gap:24,padding:"20px 0",borderBottom:"1px solid #f0f0f0"}}>
+      <div style={{display:"flex",gap:24,padding:"20px 0",borderBottom:"1px solid #f5f5f5"}}>
         <div style={{textAlign:"center"}}>
           <div style={{fontSize:28,fontFamily:"Playfair Display,serif",fontWeight:400}}>{allUsers.length}</div>
           <div style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#bbb",marginTop:4}}>users</div>

@@ -195,12 +195,12 @@ export default function Feed({
         <button className="add-btn" onClick={addStatement}>Publish</button>
         </div>
         {suggestions.length > 0 && (
-          <div ref={suggestionsRef} style={{borderTop:"1px solid #f0f0f0",marginTop:8}}>
+          <div ref={suggestionsRef} style={{borderTop:"1px solid #f5f5f5",marginTop:8}}>
             <div style={{padding:"8px 0 4px",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>similar statements</div>
             <div style={{maxHeight:280,overflowY:"auto"}}>
               {suggestions.map(s => (
                 <div key={s.id}
-                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid #f8f8f8",cursor:"pointer",gap:12}}
+                  style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid #f5f5f5",cursor:"pointer",gap:12}}
                   onClick={() => { toggleClick(s.id); }}
                 >
                   <div style={{fontSize:13,color:"#111",fontFamily:"Playfair Display,serif",fontStyle:"italic",flex:1,lineHeight:1.4}}>{s.text}</div>
@@ -211,7 +211,7 @@ export default function Feed({
             </div>
           </div>
         )}
-        <div style={{borderBottom:"1px solid #f0f0f0",marginTop:16}}/>
+        <div style={{borderBottom:"1px solid #f5f5f5",marginTop:16}}/>
       </div>
 
       <div className="feed-section">
