@@ -181,7 +181,7 @@ export default function Profile({
         </div>
 
         {/* LOCATION */}
-        <div className="profile-section">
+        <div className="profile-section flush">
           <div className="age-label">Location</div>
           <div className="loc-row">
             <input className="loc-input" placeholder="enter your city…"
@@ -245,7 +245,7 @@ export default function Profile({
 
         {/* OWN STATEMENTS */}
         {ownStatements.length > 0 && (
-          <div className="profile-section">
+          <div className="profile-section flush">
             <div className="profile-section-label">Your statements</div>
             {ownStatements.map(s => (
               <div key={s.id} className="profile-stmt" style={{cursor:"pointer"}} onClick={() => toggleRemoval(s.id)}>
@@ -260,7 +260,7 @@ export default function Profile({
 
         {/* AGREED STATEMENTS */}
         {agreedStatements.length > 0 && (
-          <div className="profile-section">
+          <div className="profile-section flush">
             <div className="profile-section-label">Statements you agreed with</div>
             {agreedStatements.map(s => (
               <div key={s.id} className="profile-stmt" style={{cursor:"pointer"}} onClick={() => toggleRemoval(s.id)}>
