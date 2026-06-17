@@ -183,16 +183,46 @@ export default function App() {
 
   const confirmReset = async (fromCommon = false) => {
     if (fromCommon) {
-      // reset only in-common panel for active chat — also clear in Firestore
-      setActiveChatCommon([]);
-      if (activeChat) {
-        const chatId = [user.uid, activeChat.id].sort().join("_");
-        const commonRef = doc(db, "chats", chatId, "meta", "common");
-        await setDoc(commonRef, { statements: [] });
-        setSavedCommonCounts(prev => ({ ...prev, [activeChat.id]: 0 }));
-      }
+      // reset = пересчёт реального текущего пересечения (НЕ обнуление):
+      // оставляем только утверждения, которые ПРЯМО СЕЙЧАС выбраны обоими.
       setModal(null);
-      showNotif("Common ground cleared");
+      if (!activeChat) return;
+      const chatId = [user.uid, activeChat.id].sort().join("_");
+      try {
+        // 1. Текущие клики собеседника (правила разрешают чтение чужого user-дока)
+        const otherSnap = await getDoc(doc(db, "users", activeChat.id));
+        const otherClicked = otherSnap.exists() ? (otherSnap.data().clicked || []) : [];
+        const otherSet = new Set(otherClicked);
+
+        // 2. Пересечение: что выбрано ОБОИМИ прямо сейчас
+        const commonIds = [...clicked].filter(id => otherSet.has(id));
+
+        // 3. Данные утверждений: берём из локального фида, иначе дочитываем.
+        //    Несуществующие (удалённые/истёкшие) пропускаем — это не общее основание.
+        const localById = new Map(statements.map(s => [s.id, s]));
+        const current = [];
+        for (const id of commonIds) {
+          const local = localById.get(id);
+          if (local) {
+            current.push({ id, text: local.text, author: local.author, clicks: local.clicks || 0 });
+            continue;
+          }
+          const sSnap = await getDoc(doc(db, "statements", id));
+          if (sSnap.exists()) {
+            const d = sSnap.data();
+            current.push({ id, text: d.text, author: d.author, clicks: d.clicks || 0 });
+          }
+        }
+
+        // 4. Сохраняем как новый снимок и обновляем счётчик
+        setActiveChatCommon(current);
+        await setDoc(doc(db, "chats", chatId, "meta", "common"), { statements: current });
+        setSavedCommonCounts(prev => ({ ...prev, [activeChat.id]: current.length }));
+        showNotif("Common ground refreshed");
+      } catch (e) {
+        console.error("reset common error:", e);
+        showNotif("Couldn't refresh — try again");
+      }
       return;
     }
     // reset map — через сервер
