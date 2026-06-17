@@ -8,6 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
+      injectRegister: null,
       includeAssets: ['favicon.svg', 'apple-touch-icon-180.png'],
       manifest: {
         name: 'H',
@@ -28,8 +29,22 @@ export default defineConfig({
         cleanupOutdatedCaches: true,
         clientsClaim: true,
         skipWaiting: true,
-        navigateFallback: '/index.html',
+        navigateFallback: '/index.html',   // только офлайн-фолбэк (навигации идут network-first)
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff,woff2}'],
+        runtimeCaching: [
+          {
+            // Документ (навигации) — всегда из сети: HTML обязан соответствовать
+            // актуальным задеплоенным CSS/JS. Кэш — только офлайн-фолбэк.
+            urlPattern: ({ request }) => request.mode === 'navigate',
+            handler: 'NetworkFirst',
+            options: {
+              cacheName: 'html',
+              networkTimeoutSeconds: 3,
+              expiration: { maxEntries: 10 },
+              cacheableResponse: { statuses: [0, 200] },
+            },
+          },
+        ],
         // НЕ добавляем runtimeCaching для googleapis.com / cloudfunctions.net —
         // запросы Firebase (Firestore/Functions/Auth) идут напрямую в сеть, SW их не трогает.
       },
