@@ -26,6 +26,7 @@ import Philosophy from "./components/Philosophy";
 import Onboarding from "./components/Onboarding";
 import Chat from "./components/Chat";
 import Feed from "./components/Feed";
+import { computeLiveCommon } from "./lib/common";
 import { useStatements } from "./hooks/useStatements";
 import { useMatches } from "./hooks/useMatches";
 import { useChat } from "./hooks/useChat";
@@ -76,7 +77,7 @@ export default function App() {
     chatInput, setChatInput,
     showCommon, setShowCommon,
     openChat, sendMessage,
-  } = useActiveChat(user, nickname, { setScreen, setNewMessageDot, setSavedCommonCounts, showNotif });
+  } = useActiveChat(user, nickname, clicked, statements, { setScreen, setNewMessageDot, setSavedCommonCounts, showNotif });
 
   // AUTH
   useEffect(() => {
@@ -189,32 +190,8 @@ export default function App() {
       if (!activeChat) return;
       const chatId = [user.uid, activeChat.id].sort().join("_");
       try {
-        // 1. Текущие клики собеседника (правила разрешают чтение чужого user-дока)
-        const otherSnap = await getDoc(doc(db, "users", activeChat.id));
-        const otherClicked = otherSnap.exists() ? (otherSnap.data().clicked || []) : [];
-        const otherSet = new Set(otherClicked);
-
-        // 2. Пересечение: что выбрано ОБОИМИ прямо сейчас
-        const commonIds = [...clicked].filter(id => otherSet.has(id));
-
-        // 3. Данные утверждений: берём из локального фида, иначе дочитываем.
-        //    Несуществующие (удалённые/истёкшие) пропускаем — это не общее основание.
-        const localById = new Map(statements.map(s => [s.id, s]));
-        const current = [];
-        for (const id of commonIds) {
-          const local = localById.get(id);
-          if (local) {
-            current.push({ id, text: local.text, author: local.author, clicks: local.clicks || 0 });
-            continue;
-          }
-          const sSnap = await getDoc(doc(db, "statements", id));
-          if (sSnap.exists()) {
-            const d = sSnap.data();
-            current.push({ id, text: d.text, author: d.author, clicks: d.clicks || 0 });
-          }
-        }
-
-        // 4. Сохраняем как новый снимок и обновляем счётчик
+        // reset = ЗАМЕНА на текущее реальное пересечение (обрезает устаревшие).
+        const current = await computeLiveCommon(activeChat.id, clicked, statements);
         setActiveChatCommon(current);
         await setDoc(doc(db, "chats", chatId, "meta", "common"), { statements: current });
         setSavedCommonCounts(prev => ({ ...prev, [activeChat.id]: current.length }));

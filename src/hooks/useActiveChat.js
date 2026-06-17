@@ -10,8 +10,9 @@ import {
 } from "firebase/firestore";
 import { db } from "../firebase";
 import { getFunctions, httpsCallable } from "firebase/functions";
+import { computeLiveCommon } from "../lib/common";
 
-export function useActiveChat(user, nickname, { setScreen, setNewMessageDot, setSavedCommonCounts, showNotif }) {
+export function useActiveChat(user, nickname, clicked, statements, { setScreen, setNewMessageDot, setSavedCommonCounts, showNotif }) {
   const [activeChat, setActiveChat] = useState(null);
   const [activeChatCommon, setActiveChatCommon] = useState([]); // cached common for active chat
   const [chatMessages, setChatMessages] = useState([]);
@@ -50,23 +51,27 @@ export function useActiveChat(user, nickname, { setScreen, setNewMessageDot, set
       markRead({ chatId });
     } catch(e) {}
 
-    // Загружаем in common
+    // 1. История (снимок) — сохраняем целиком, ничего не удаляем
     const commonRef = doc(db, "chats", chatId, "meta", "common");
     const commonSnap = await getDoc(commonRef);
     const saved = commonSnap.exists() ? (commonSnap.data().statements || []) : [];
-    const current = chatUser.commonStatements || [];
-    if (saved.length > 0) {
-      const savedIds = new Set(saved.map(s => s.id));
-      const newOnes = current.filter(s => !savedIds.has(s.id));
-      const merged = [...saved, ...newOnes];
-      setActiveChatCommon(merged);
-      if (newOnes.length > 0) await setDoc(commonRef, { statements: merged });
-      setSavedCommonCounts(prev => ({ ...prev, [chatUser.id]: merged.length }));
-    } else {
-      setActiveChatCommon(current);
-      if (current.length > 0) await setDoc(commonRef, { statements: current });
-      setSavedCommonCounts(prev => ({ ...prev, [chatUser.id]: current.length }));
+    const savedIds = new Set(saved.map(s => s.id));
+
+    // 2. Текущее реальное пересечение (работает и из Matches, и из Messages)
+    let current = [];
+    try {
+      current = await computeLiveCommon(chatUser.id, clicked, statements);
+    } catch (e) {
+      console.error("openChat computeLiveCommon error:", e);
     }
+
+    // 3. Добавляем только НОВЫЕ (которых ещё нет в истории); историю не трогаем
+    const newOnes = current.filter(s => !savedIds.has(s.id));
+    const merged = newOnes.length > 0 ? [...saved, ...newOnes] : saved;
+
+    setActiveChatCommon(merged);
+    if (newOnes.length > 0) await setDoc(commonRef, { statements: merged });
+    setSavedCommonCounts(prev => ({ ...prev, [chatUser.id]: merged.length }));
   };
 
   const sendMessage = async () => {
