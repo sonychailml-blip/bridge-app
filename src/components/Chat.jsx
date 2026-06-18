@@ -14,7 +14,9 @@ export default function Chat({
   return (
     <div className="chat-body">
       <div className="chat-msgs">
-        {chatMessages.map((msg, i) => (
+        {chatMessages.length === 0 ? (
+          <div className="empty"><p>no messages yet<br/>say hello</p></div>
+        ) : chatMessages.map((msg, i) => (
           <div key={i} className={`msg ${msg.from === user.uid ? "you" : "them"}`}>
             {msg.from !== user.uid && <div className="msg-sender">{msg.fromNick}</div>}
             <div className="msg-text">{msg.text}</div>

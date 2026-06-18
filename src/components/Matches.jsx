@@ -19,7 +19,7 @@ export default function Matches({
               <div className="list-sub">
                 <button className={`common-toggle ${expandedId===m.id?"on":""}`}
                   onClick={() => setExpandedId(expandedId===m.id ? null : m.id)}>
-                  {m.common} in common
+                  {m.common ?? 0} in common
                 </button>
                 {(() => {
                   const cityShown = m.location && useLocation && savedLocation;
