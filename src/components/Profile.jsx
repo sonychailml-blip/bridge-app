@@ -8,7 +8,7 @@ export default function Profile({
   useLocation, setUseLocation, savedLocation, setSavedLocation,
   useAge, setUseAge, savedAge, setSavedAge,
   savedAgeMin, setSavedAgeMin, savedAgeMax, setSavedAgeMax,
-  onClose, onLogout, onResetMap,
+  onClose, onLogout, onResetMap, onNotif,
 }) {
   const [pendingRemovals, setPendingRemovals] = useState(new Set());
   const [locationInput, setLocationInput] = useState(savedLocation?.name || "");
@@ -27,7 +27,8 @@ export default function Profile({
     if (!Number.isInteger(v) || v < 18) { setAgeError("Age must be a whole number, 18 or older."); return; }
     setAgeError("");
     setSavedAge(v);
-    await updateDoc(doc(db, "users", user.uid), { age: v });
+    try { await updateDoc(doc(db, "users", user.uid), { age: v }); }
+    catch (e) { console.error("saveAge error:", e); }
   };
 
   const saveAgeMin = async () => {
@@ -37,7 +38,8 @@ export default function Profile({
     if (max != null && v > max) { setAgeError("Minimum age can't be greater than maximum age."); return; }
     setAgeError("");
     setSavedAgeMin(v);
-    await updateDoc(doc(db, "users", user.uid), { ageMin: v });
+    try { await updateDoc(doc(db, "users", user.uid), { ageMin: v }); }
+    catch (e) { console.error("saveAgeMin error:", e); }
   };
 
   const saveAgeMax = async () => {
@@ -47,7 +49,8 @@ export default function Profile({
     if (min != null && v < min) { setAgeError("Maximum age can't be less than minimum age."); return; }
     setAgeError("");
     setSavedAgeMax(v);
-    await updateDoc(doc(db, "users", user.uid), { ageMax: v });
+    try { await updateDoc(doc(db, "users", user.uid), { ageMax: v }); }
+    catch (e) { console.error("saveAgeMax error:", e); }
   };
 
   // Все три поля валидны: целые >= 18 и ageMin <= ageMax
@@ -78,10 +81,12 @@ export default function Profile({
       setAgeError("");
       setSavedAge(a); setSavedAgeMin(mn); setSavedAgeMax(mx);
       setUseAge(true);
-      await updateDoc(doc(db, "users", user.uid), { age: a, ageMin: mn, ageMax: mx, useAge: true });
+      try { await updateDoc(doc(db, "users", user.uid), { age: a, ageMin: mn, ageMax: mx, useAge: true }); }
+      catch (e) { console.error("toggleUseAge error:", e); setUseAge(false); onNotif?.("Couldn't save — try again"); }
     } else {
       setUseAge(false);
-      await updateDoc(doc(db, "users", user.uid), { useAge: false });
+      try { await updateDoc(doc(db, "users", user.uid), { useAge: false }); }
+      catch (e) { console.error("toggleUseAge error:", e); setUseAge(true); onNotif?.("Couldn't save — try again"); }
     }
   };
 
@@ -110,9 +115,11 @@ export default function Profile({
     setSavedLocation(loc);
     setLocationInput(loc.name);
     setLocationSuggestions([]);
-    await updateDoc(doc(db, "users", user.uid), {
-      location: { name: loc.name, lat: loc.lat, lng: loc.lng }
-    });
+    try {
+      await updateDoc(doc(db, "users", user.uid), {
+        location: { name: loc.name, lat: loc.lat, lng: loc.lng }
+      });
+    } catch (e) { console.error("selectLocation error:", e); onNotif?.("Couldn't save — try again"); }
   };
 
   // Если фильтр локации включён, а города нет — выключаем и сохраняем useLocation=false
@@ -132,10 +139,12 @@ export default function Profile({
       }
       setLocationError("");
       setUseLocation(true);
-      await updateDoc(doc(db, "users", user.uid), { useLocation: true });
+      try { await updateDoc(doc(db, "users", user.uid), { useLocation: true }); }
+      catch (e) { console.error("toggleUseLocation error:", e); setUseLocation(false); onNotif?.("Couldn't save — try again"); }
     } else {
       setUseLocation(false);
-      await updateDoc(doc(db, "users", user.uid), { useLocation: false });
+      try { await updateDoc(doc(db, "users", user.uid), { useLocation: false }); }
+      catch (e) { console.error("toggleUseLocation error:", e); setUseLocation(true); onNotif?.("Couldn't save — try again"); }
     }
   };
 

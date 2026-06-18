@@ -79,21 +79,26 @@ export default function Feed({
   const loadMoreStatements = async () => {
     if (!lastStmtDoc || !hasMoreStmts || loadingMore) return;
     setLoadingMore(true);
-    const now = Date.now();
-    const q = query(collection(db, "statements"), orderBy("ts", "desc"), startAfter(lastStmtDoc), limit(20));
-    const snap = await getDocs(q);
-    const newDocs = snap.docs;
-    setLastStmtDoc(newDocs[newDocs.length - 1] || lastStmtDoc);
-    setHasMoreStmts(newDocs.length === 20);
-    const newStmts = newDocs
-      .map(d => ({ id: d.id, ...d.data() }))
-      .filter(s => s.ts?.toMillis ? (now - s.ts.toMillis() < MONTH) : true)
-      .filter(s => (s.reports || 0) < REPORT_THRESHOLD);
-    setStatements(prev => {
-      const ids = new Set(prev.map(s => s.id));
-      return [...prev, ...newStmts.filter(s => !ids.has(s.id))];
-    });
-    setLoadingMore(false);
+    try {
+      const now = Date.now();
+      const q = query(collection(db, "statements"), orderBy("ts", "desc"), startAfter(lastStmtDoc), limit(20));
+      const snap = await getDocs(q);
+      const newDocs = snap.docs;
+      setLastStmtDoc(newDocs[newDocs.length - 1] || lastStmtDoc);
+      setHasMoreStmts(newDocs.length === 20);
+      const newStmts = newDocs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter(s => s.ts?.toMillis ? (now - s.ts.toMillis() < MONTH) : true)
+        .filter(s => (s.reports || 0) < REPORT_THRESHOLD);
+      setStatements(prev => {
+        const ids = new Set(prev.map(s => s.id));
+        return [...prev, ...newStmts.filter(s => !ids.has(s.id))];
+      });
+    } catch (e) {
+      console.error("loadMoreStatements error:", e);
+    } finally {
+      setLoadingMore(false);
+    }
   };
 
   const toggleClick = async (id) => {

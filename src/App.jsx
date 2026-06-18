@@ -68,7 +68,7 @@ export default function App() {
 
   // HOOKS
   const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
-  const { matches, setMatches, newMatchDot, setNewMatchDot, fetchMatches } = useMatches(user, useLocation, useAge);
+  const { matches, setMatches, newMatchDot, setNewMatchDot, fetchMatches } = useMatches(user, useLocation, useAge, showNotif);
   const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user);
   const {
     activeChat,
@@ -175,9 +175,15 @@ export default function App() {
   const confirmReport = async () => {
     const id = modal.id;
     setReported(prev => new Set([...prev, id]));
-    await updateDoc(doc(db, "statements", id), { reports: increment(1) });
     setModal(null);
-    showNotif("Report submitted — thank you");
+    try {
+      await updateDoc(doc(db, "statements", id), { reports: increment(1) });
+      showNotif("Report submitted — thank you");
+    } catch (e) {
+      console.error("report error:", e);
+      setReported(prev => { const n = new Set(prev); n.delete(id); return n; });  // откат
+      showNotif("Couldn't submit report — try again");
+    }
   };
 
 
@@ -217,6 +223,7 @@ export default function App() {
       await resetMap();
     } catch(e) {
       console.error("resetMap error:", e);
+      showNotif("Couldn't reset — try again");
     }
   };
 
@@ -292,6 +299,7 @@ export default function App() {
             setSavedAgeMin={setSavedAgeMin}
             savedAgeMax={savedAgeMax}
             setSavedAgeMax={setSavedAgeMax}
+            onNotif={showNotif}
             onClose={closeProfile}
             onLogout={handleLogout}
             onResetMap={() => setModal({type:"reset",fromCommon:false})}

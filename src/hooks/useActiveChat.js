@@ -63,6 +63,7 @@ export function useActiveChat(user, nickname, clicked, statements, { setScreen, 
       current = await computeLiveCommon(chatUser.id, clicked, statements);
     } catch (e) {
       console.error("openChat computeLiveCommon error:", e);
+      showNotif?.("Couldn't load common ground");
     }
 
     // 3. Добавляем только НОВЫЕ (которых ещё нет в истории); историю не трогаем
@@ -93,10 +94,12 @@ export function useActiveChat(user, nickname, clicked, statements, { setScreen, 
         common: activeChatCommon.length,
       });
     } catch(e) {
+      setChatInput(text);   // не теряем написанное — даём повторить
       if (e.code === "functions/resource-exhausted") {
         showNotif?.(e.message);
       } else {
         console.error("sendMessage error:", e);
+        showNotif?.("Couldn't send — check your connection");
       }
     }
   };
