@@ -136,6 +136,8 @@ exports.getMatches = onCall({ region: "europe-west1", cors: ["https://mybridgeap
   }
   matches.forEach(m => {
     m.commonStatements = m.commonIds.map(id => commonStmts[id]).filter(Boolean);
+    // Сортируем по значимости: реже (меньше кликов) = выше вес = выше в списке.
+    m.commonStatements.sort((a, b) => (a.clicks || 0) - (b.clicks || 0));
     // Вес общего утверждения тем выше, чем оно реже (меньше кликов).
     // weight = 1 / log2(clicks + 2): clicks=1 → ~0.63, 10 → ~0.29, 1000 → ~0.10, 50000 → ~0.064
     m.score = m.commonStatements.reduce((sum, s) => sum + 1 / Math.log2((s.clicks || 0) + 2), 0);

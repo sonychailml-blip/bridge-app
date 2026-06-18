@@ -24,5 +24,8 @@ export async function computeLiveCommon(otherUid, myClicked, statements) {
       result.push({ id, text: d.text, author: d.author, clicks: d.clicks || 0 });
     }
   }
+  // Сортируем по значимости: реже (меньше кликов) = выше вес = выше в списке —
+  // консистентно с getMatches.
+  result.sort((a, b) => (a.clicks || 0) - (b.clicks || 0));
   return result;
 }
