@@ -105,6 +105,8 @@ export default function App() {
         setUser(null);
         setNickname("");
         setClicked(new Set());
+        setShowOnboarding(false);
+        setProfileIncomplete(false);
       }
       setLoading(false);
     });
@@ -274,7 +276,7 @@ export default function App() {
   return (
     <>
 
-      {showOnboarding && <Onboarding onDone={finishOnboarding} />}
+      {user && showOnboarding && <Onboarding onDone={finishOnboarding} />}
 
       <div className="app" onClick={() => { if(showProfile) closeProfile(); }}>
 
