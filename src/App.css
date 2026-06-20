@@ -205,6 +205,10 @@ body{background:#fff;overflow-y:scroll;}
 .onb-stmt-line{height:2px;background:#eee;border-radius:2px;flex:1;}
 .onb-stmt-dot{width:10px;height:10px;border-radius:50%;border:1px solid #ccc;flex-shrink:0;}
 .onb-stmt-dot.on{background:#111;border-color:#111;}
+.onb-arrow{position:absolute;top:50%;transform:translateY(-50%);width:44px;height:44px;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.03);border:1px solid #ddd;border-radius:50%;color:#666;cursor:pointer;z-index:2;transition:all .15s;}
+.onb-arrow:hover{color:#111;border-color:#111;background:rgba(0,0,0,0.05);}
+.onb-arrow.left{left:18px;}
+.onb-arrow.right{right:18px;}
 .onb-venn{position:relative;width:180px;height:110px;}
 .onb-venn-circle{position:absolute;top:0;left:0;width:110px;height:110px;border-radius:50%;border:1.5px solid #111;}
 .onb-venn-circle.right{left:70px;background:rgba(17,17,17,.06);}
