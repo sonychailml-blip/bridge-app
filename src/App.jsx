@@ -350,7 +350,6 @@ export default function App() {
                   H
 
                 </div>
-<div style={{fontSize:9,color:"#ddd",letterSpacing:1,position:"absolute",left:24,bottom:14}}>v2.6</div>
                 <div className="nav-nick" style={{cursor:"pointer"}} onClick={(e) => { e.stopPropagation(); if(showProfile) closeProfile(); else openProfile(); }}>{nickname}</div>
               </div>
               <div className="nav-tabs">

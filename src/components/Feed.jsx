@@ -232,13 +232,14 @@ export default function Feed({
             <div className="stmt-right">
               <div className={`dot ${clicked.has(s.id)?"on":""}`}/>
               <div className="cnt">{Math.max(0, s.clicks||0).toLocaleString()}</div>
-              {s.authorId !== user.uid && !reported.has(s.id) && (
+              {/* report button hidden — re-enable by changing `false &&` back to the original condition. Report logic is intact. */}
+              {false && s.authorId !== user.uid && !reported.has(s.id) && (
                 <button className="r-btn"
                   onClick={e => { e.stopPropagation(); onReport(s.id); }}>
                   r
                 </button>
               )}
-              {reported.has(s.id) && <span className="r-done">r</span>}
+              {false && reported.has(s.id) && <span className="r-done">r</span>}
             </div>
           </div>
         ))}
