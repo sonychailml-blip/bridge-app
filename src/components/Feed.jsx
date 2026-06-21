@@ -76,6 +76,22 @@ export default function Feed({
     return () => clearTimeout(timer);
   }, [searchQuery]);
 
+  // suggestions — debounced; раньше дёргали сервер на каждое нажатие, из-за чего тормозил Enter
+  useEffect(() => {
+    if (newStatement.trim().length <= 2) { setSuggestions([]); return; }
+    const timer = setTimeout(async () => {
+      try {
+        const fns = getFunctions(undefined, "europe-west1");
+        const searchFn = httpsCallable(fns, "searchStatements");
+        const result = await searchFn({ query: newStatement, limit: 10 });
+        setSuggestions(result.data.results.filter(s => s.text.toLowerCase() !== newStatement.toLowerCase()));
+      } catch(e) {
+        setSuggestions([]);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [newStatement]);
+
   const loadMoreStatements = async () => {
     if (!lastStmtDoc || !hasMoreStmts || loadingMore) return;
     setLoadingMore(true);
@@ -140,6 +156,7 @@ export default function Feed({
     }
     const duplicate = statements.some(s => s.text.toLowerCase().trim() === newStatement.toLowerCase().trim());
     if (duplicate) { onNotif("This statement already exists"); return; }
+    if (newStatement.trim().length > 200) { onNotif("Statement too long — max 200 characters"); return; }
     try {
       const fns = getFunctions(undefined, "europe-west1");
       const createStatement = httpsCallable(fns, "createStatement");
@@ -177,28 +194,16 @@ export default function Feed({
         <div className="statement-row">
         <input className="search-input" placeholder="write a statement about yourself… or search"
           value={newStatement}
-          onChange={async e => {
-            const val = e.target.value;
-            setNewStatement(val);
-            if (val.trim().length > 2) {
-              try {
-                const fns = getFunctions(undefined, "europe-west1");
-                const searchFn = httpsCallable(fns, "searchStatements");
-                const result = await searchFn({ query: val, limit: 10 });
-                const found = result.data.results
-                  .filter(s => s.text.toLowerCase() !== val.toLowerCase());
-                setSuggestions(found);
-              } catch(e) {
-                setSuggestions([]);
-              }
-            } else {
-              setSuggestions([]);
-            }
-          }}
+          onChange={e => setNewStatement(e.target.value)}
           onKeyDown={e => { if(e.key === "Enter") { addStatement(); setSuggestions([]); } }}
         />
         <button className="add-btn" onClick={addStatement}>Publish</button>
         </div>
+        {newStatement.length > 0 && (
+          <div style={{textAlign:"right",fontSize:10,letterSpacing:1,marginTop:4,color: newStatement.length > 200 ? "#c0392b" : "#ccc"}}>
+            {newStatement.length}/200
+          </div>
+        )}
         {suggestions.length > 0 && (
           <div ref={suggestionsRef} style={{borderTop:"1px solid #f5f5f5",marginTop:8}}>
             <div style={{padding:"8px 0 4px",fontSize:9,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>similar statements</div>
@@ -208,7 +213,7 @@ export default function Feed({
                   style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid #f5f5f5",cursor:"pointer",gap:12}}
                   onClick={() => { toggleClick(s.id); }}
                 >
-                  <div style={{fontSize:13,color:"#111",fontFamily:"Playfair Display,serif",fontStyle:"italic",flex:1,lineHeight:1.4}}>{s.text}</div>
+                  <div style={{fontSize:13,color:"#111",flex:1,lineHeight:1.4}}>{s.text}</div>
                   <div style={{fontSize:10,color:"#ccc",flexShrink:0}}>{(s.clicks||0).toLocaleString()}</div>
                   <div style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:clicked.has(s.id)?"#111":"transparent",border:clicked.has(s.id)?"1px solid #111":"1px solid #ccc"}}/>
                 </div>

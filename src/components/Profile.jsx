@@ -259,7 +259,7 @@ export default function Profile({
             {ownStatements.map(s => (
               <div key={s.id} className="profile-stmt" style={{cursor:"pointer"}} onClick={() => toggleRemoval(s.id)}>
                 <div>
-                  <div className="profile-stmt-text italic">{s.text}</div>
+                  <div className="profile-stmt-text">{s.text}</div>
                 </div>
                 <div className={`profile-stmt-dot ${clicked.has(s.id) && !pendingRemovals.has(s.id) ? "on" : ""}`}/>
               </div>

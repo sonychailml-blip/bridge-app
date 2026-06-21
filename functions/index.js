@@ -205,8 +205,11 @@ exports.createStatement = onCall({ region: "europe-west1", cors: ["https://mybri
   if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
 
   const { text } = request.data;
-  if (typeof text !== "string" || text.trim().length === 0 || text.trim().length > 500) {
+  if (typeof text !== "string" || text.trim().length === 0) {
     throw new HttpsError("invalid-argument", "Invalid statement");
+  }
+  if (text.trim().length > 200) {
+    throw new HttpsError("invalid-argument", "Statement too long — max 200 characters");
   }
   const cleanText = text.trim();
   const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
