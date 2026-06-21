@@ -68,7 +68,7 @@ export default function Admin({ statements, allUsers, onDelete, onNotif }) {
                   {s.author} · {s.reports} report{s.reports > 1 ? "s" : ""}
                 </div>
               </div>
-              <button onClick={() => deleteStatement(s.id)} style={{background:"none",border:"1px solid #111",padding:"5px 12px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#111",whiteSpace:"nowrap"}}>
+              <button onClick={() => deleteStatement(s.id)} style={{background:"none",border:"1px solid #111",padding:"5px 12px",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#111",whiteSpace:"nowrap"}}>
                 Delete
               </button>
             </div>
@@ -82,7 +82,7 @@ export default function Admin({ statements, allUsers, onDelete, onNotif }) {
       </div>
       <div style={{marginBottom:12}}>
         <input
-          style={{width:"100%",border:"none",borderBottom:"1px solid #f0f0f0",padding:"8px 0",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:13,outline:"none",background:"transparent",color:"#111"}}
+          style={{width:"100%",border:"none",borderBottom:"1px solid #f0f0f0",padding:"8px 0",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:13,outline:"none",background:"transparent",color:"#111"}}
           placeholder="search…"
           value={searchQuery}
           onChange={e => setSearchQuery(e.target.value)}
@@ -97,7 +97,7 @@ export default function Admin({ statements, allUsers, onDelete, onNotif }) {
               {s.reports > 0 && <span style={{color:"#e0a0a0"}}> · {s.reports} reports</span>}
             </div>
           </div>
-          <button onClick={() => deleteStatement(s.id)} style={{background:"none",border:"1px solid #ddd",padding:"5px 12px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#999",whiteSpace:"nowrap",transition:"all .15s"}}>
+          <button onClick={() => deleteStatement(s.id)} style={{background:"none",border:"1px solid #ddd",padding:"5px 12px",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#999",whiteSpace:"nowrap",transition:"all .15s"}}>
             Delete
           </button>
         </div>
@@ -115,7 +115,7 @@ export default function Admin({ statements, allUsers, onDelete, onNotif }) {
               {(u.clicked||[]).length} statements clicked
             </div>
           </div>
-          <button onClick={() => u.blocked ? unblockUser(u.id) : blockUser(u.id)} style={{background:"none",border:"1px solid #ddd",padding:"5px 12px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:u.blocked?"#111":"#999",whiteSpace:"nowrap"}}>
+          <button onClick={() => u.blocked ? unblockUser(u.id) : blockUser(u.id)} style={{background:"none",border:"1px solid #ddd",padding:"5px 12px",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:10,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:u.blocked?"#111":"#999",whiteSpace:"nowrap"}}>
             {u.blocked ? "Unblock" : "Block"}
           </button>
         </div>

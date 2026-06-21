@@ -122,12 +122,13 @@ export default function App() {
 
 
   const handleCompleteProfile = async () => {
-    if (completeNickInput.trim().length < 2) return;
+    const nick = completeNickInput.trim().slice(0, 15);
+    if (nick.length < 2) return;
     try {
       await setDoc(doc(db, "users", user.uid), {
-        nickname: completeNickInput.trim(), clicked: [], ts: serverTimestamp(), blocked: false,
+        nickname: nick, clicked: [], ts: serverTimestamp(), blocked: false,
       });
-      setNickname(completeNickInput.trim());
+      setNickname(nick);
       setProfileIncomplete(false);
       setShowOnboarding(true);
     } catch (e) {
@@ -231,32 +232,33 @@ export default function App() {
 
 
   if (loading) return (
-    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,letterSpacing:2,fontSize:12,textTransform:"uppercase",color:"#bbb"}}>
+    <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,letterSpacing:2,fontSize:12,textTransform:"uppercase",color:"#bbb"}}>
       loading
     </div>
   );
 
   if (user && profileIncomplete) return (
     <>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,padding:"48px 32px",textAlign:"center",maxWidth:480,margin:"0 auto"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,padding:"48px 32px",textAlign:"center",maxWidth:480,margin:"0 auto"}}>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:72,fontWeight:400,letterSpacing:6,marginBottom:8,lineHeight:1}}>H</div>
         <div style={{fontSize:13,color:"#999",lineHeight:2,marginBottom:40}}>One last step —<br/>choose your nickname.</div>
         <input
-          style={{width:"100%",border:"none",borderBottom:"1px solid #111",padding:"10px 0",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:18,outline:"none",textAlign:"center",background:"transparent",color:"#111",letterSpacing:1,marginBottom:32}}
+          style={{width:"100%",border:"none",borderBottom:"1px solid #111",padding:"10px 0",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:18,outline:"none",textAlign:"center",background:"transparent",color:"#111",letterSpacing:1,marginBottom:32}}
           placeholder="nickname"
           value={completeNickInput}
           onChange={e => setCompleteNickInput(e.target.value)}
           onKeyDown={e => e.key==="Enter" && handleCompleteProfile()}
+          maxLength={15}
           autoFocus
         />
         <button
           onClick={handleCompleteProfile}
           disabled={completeNickInput.trim().length < 2}
-          style={{background:"#111",color:"#fff",border:"none",padding:"14px 48px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:13,letterSpacing:3,textTransform:"uppercase",cursor:"pointer",opacity:completeNickInput.trim().length < 2 ? 0.3 : 1}}
+          style={{background:"#111",color:"#fff",border:"none",padding:"14px 48px",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:13,letterSpacing:3,textTransform:"uppercase",cursor:"pointer",opacity:completeNickInput.trim().length < 2 ? 0.3 : 1}}
         >
           Enter
         </button>
-        <button onClick={handleLogout} style={{marginTop:20,background:"none",border:"none",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#ccc",cursor:"pointer"}}>
+        <button onClick={handleLogout} style={{marginTop:20,background:"none",border:"none",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#ccc",cursor:"pointer"}}>
           Sign out
         </button>
       </div>
@@ -265,10 +267,10 @@ export default function App() {
 
   if (user && isBlocked) return (
     <>
-      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"Lato,sans-serif",fontWeight:300,padding:"48px 32px",textAlign:"center",maxWidth:480,margin:"0 auto"}}>
+      <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",height:"100vh",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,padding:"48px 32px",textAlign:"center",maxWidth:480,margin:"0 auto"}}>
         <div style={{fontFamily:"Playfair Display,serif",fontSize:72,fontWeight:400,letterSpacing:6,marginBottom:8,lineHeight:1}}>H</div>
         <div style={{fontSize:13,color:"#999",lineHeight:2,marginBottom:32}}>Your account has been suspended.<br/>If you think this is a mistake,<br/>please contact us.</div>
-        <button onClick={handleLogout} style={{background:"none",border:"1px solid #ddd",padding:"10px 24px",fontFamily:"Lato,sans-serif",fontWeight:300,fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#999"}}>Sign out</button>
+        <button onClick={handleLogout} style={{background:"none",border:"1px solid #ddd",padding:"10px 24px",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:11,letterSpacing:2,textTransform:"uppercase",cursor:"pointer",color:"#999"}}>Sign out</button>
       </div>
     </>
   );

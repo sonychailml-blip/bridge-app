@@ -6,10 +6,10 @@ export default function Philosophy({ onClose }) {
         <div style={{textAlign:"center",padding:"28px 0 4px"}}>
           <div style={{fontFamily:"'Playfair Display',serif",fontSize:72,fontWeight:400,letterSpacing:6,lineHeight:1}}>H</div>
         </div>
-        <div style={{fontFamily:"'Lato',sans-serif",fontWeight:300,fontSize:15,lineHeight:1.75,color:"#444",fontStyle:"italic",padding:"20px 8px 0",maxWidth:420,margin:"0 auto"}}>
+        <div style={{fontFamily:"'Playfair Display',serif",fontWeight:400,fontSize:15,lineHeight:1.75,color:"#444",fontStyle:"italic",padding:"20px 8px 0",maxWidth:420,margin:"0 auto"}}>
           “H is where people find each other through what matters to them. Every statement you agree with is a part of you. When your world overlaps with someone’s, you’ve found something rare — a person who sees as you do.”
         </div>
-        <div style={{textAlign:"center",fontFamily:"'Lato',sans-serif",fontWeight:300,fontSize:11,color:"#bbb",letterSpacing:0.3,padding:"28px 8px 24px"}}>
+        <div style={{textAlign:"center",fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",fontWeight:300,fontSize:11,color:"#bbb",letterSpacing:0.3,padding:"28px 8px 24px"}}>
           Questions or feedback:{" "}
           <a href="mailto:chailakhianmikhail@gmail.com" style={{color:"#999",textDecoration:"none",borderBottom:"1px solid #e5e5e5"}}>
             chailakhianmikhail@gmail.com

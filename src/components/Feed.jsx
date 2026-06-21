@@ -213,7 +213,7 @@ export default function Feed({
                   style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"9px 0",borderBottom:"1px solid #f5f5f5",cursor:"pointer",gap:12}}
                   onClick={() => { toggleClick(s.id); }}
                 >
-                  <div style={{fontSize:13,color:"#111",flex:1,lineHeight:1.4}}>{s.text}</div>
+                  <div style={{fontSize:13,color:"#111",flex:1,lineHeight:1.4,fontFamily:"'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif",overflowWrap:"break-word",wordBreak:"break-word",minWidth:0}}>{s.text}</div>
                   <div style={{fontSize:10,color:"#ccc",flexShrink:0}}>{(s.clicks||0).toLocaleString()}</div>
                   <div style={{width:7,height:7,borderRadius:"50%",flexShrink:0,background:clicked.has(s.id)?"#111":"transparent",border:clicked.has(s.id)?"1px solid #111":"1px solid #ccc"}}/>
                 </div>
