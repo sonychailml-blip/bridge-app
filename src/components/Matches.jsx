@@ -38,6 +38,7 @@ export default function Matches({
             </div>
           </div>
           <div className={`common-panel ${expandedId===m.id?"open":""}`}>
+            {expandedId===m.id && (
             <div className="common-inner">
               <div className="common-title">what you share</div>
               {(m.commonStatements || []).length === 0 && (
@@ -53,6 +54,7 @@ export default function Matches({
                 </div>
               ))}
             </div>
+            )}
           </div>
         </div>
       ))}
