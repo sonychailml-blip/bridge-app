@@ -34,7 +34,7 @@ export default function Matches({
               </div>
             </div>
             <div className="list-right">
-              <button className="write-btn" onClick={() => onOpenChat(m)}>Write</button>
+              <button className="btn btn-secondary" onClick={() => onOpenChat(m)}>Write</button>
             </div>
           </div>
           <div className={`common-panel ${expandedId===m.id?"open":""}`}>

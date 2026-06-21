@@ -219,7 +219,7 @@ export default function App() {
     setClicked(new Set());
     setStatements(prev => prev.map(s => clicked.has(s.id) ? { ...s, clicks: Math.max(0, (s.clicks||0) - 1) } : s));
     setModal(null);
-    showNotif("Your map has been cleared");
+    showNotif("All statements removed");
     try {
       const fns = getFunctions(undefined, "europe-west1");
       const resetMap = httpsCallable(fns, "resetMap");
@@ -323,16 +323,16 @@ export default function App() {
                 <div className="modal-title">Report this statement?</div>
                 <div className="modal-text">It will be hidden if others report it too.<br/>Thank you for keeping H safe.</div>
                 <div className="modal-actions">
-                  <button className="modal-btn" onClick={() => setModal(null)}>Cancel</button>
-                  <button className="modal-btn danger" onClick={confirmReport}>Report</button>
+                  <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
+                  <button className="btn btn-primary" onClick={confirmReport}>Report</button>
                 </div>
               </>}
               {modal.type === "reset" && <>
-                <div className="modal-title">Clear your map?</div>
-                <div className="modal-text">All your statements and agreements will be removed. Your conversations will remain.<br/><br/>This cannot be undone.</div>
+                <div className="modal-title">Reset all statements?</div>
+                <div className="modal-text">This permanently removes every statement you've written and agreed with. Your conversations will remain.<br/><br/>This can't be undone.</div>
                 <div className="modal-actions">
-                  <button className="modal-btn" onClick={() => setModal(null)}>Cancel</button>
-                  <button className="modal-btn danger" onClick={() => confirmReset(modal.fromCommon)}>Clear map</button>
+                  <button className="btn btn-secondary" onClick={() => setModal(null)}>Cancel</button>
+                  <button className="btn btn-primary" onClick={() => confirmReset(modal.fromCommon)}>Reset</button>
                 </div>
               </>}
             </div>

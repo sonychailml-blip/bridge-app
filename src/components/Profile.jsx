@@ -186,7 +186,7 @@ export default function Profile({
       <div className="profile-panel" onClick={e => e.stopPropagation()}>
         <div className="profile-panel-header">
           <div className="profile-panel-title">{nickname}</div>
-          <button className="profile-reset-btn" onClick={onLogout}>sign out</button>
+          <button className="btn btn-secondary" onClick={onLogout}>sign out</button>
         </div>
 
         {/* LOCATION */}
@@ -247,7 +247,7 @@ export default function Profile({
 
         {/* RESET */}
         <div style={{padding:"16px 0",borderBottom:"1px solid #f5f5f5"}}>
-          <button className="profile-reset-btn" onClick={() => { onResetMap(); handleClose(); }}>
+          <button className="btn btn-secondary" onClick={() => { onResetMap(); handleClose(); }}>
             reset all statements
           </button>
         </div>

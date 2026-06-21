@@ -60,17 +60,20 @@ body{background:#fff;overflow-y:scroll;}
 .common-stmt-text{font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;color:#111;line-height:1.4;overflow-wrap:break-word;word-break:break-word;}
 .common-stmt-author{font-family:'Playfair Display',serif;font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ccc;margin-top:3px;}
 
+/* BUTTONS — unified system: one shared form, two accent levels */
+.btn{display:inline-block;background:none;border:1px solid;border-radius:5px;font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;padding:7px 16px;cursor:pointer;transition:all .15s;line-height:1;}
+.btn-primary{border-color:#111;color:#111;}
+.btn-primary:hover{background:#111;color:#fff;}
+.btn-secondary{border-color:#ddd;color:#999;}
+.btn-secondary:hover{border-color:#111;color:#111;}
+
 /* FEED */
 .feed-section{padding:0 24px 100px;}
 .add-input::placeholder{color:#ccc;}
 .add-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
 .statement-row{display:flex;align-items:flex-end;gap:12px;}
 .statement-row .search-input{flex:1;min-width:0;}
-.statement-row .add-btn{flex-shrink:0;white-space:nowrap;}
-.add-btn{background:none;border:1px solid #111;padding:5px 14px;font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;color:#111;}
-.add-btn:hover{background:#111;color:#fff;}
-.reset-btn{background:none;border:none;font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;cursor:pointer;padding:0;transition:color .15s;}
-.reset-btn:hover{color:#111;}
+.statement-row .btn{flex-shrink:0;white-space:nowrap;}
 
 .stmt{display:flex;align-items:center;justify-content:space-between;padding:15px 0;border-bottom:1px solid #f5f5f5;gap:12px;cursor:pointer;transition:opacity .15s;}
 .stmt:hover{opacity:.85;}
@@ -93,10 +96,6 @@ body{background:#fff;overflow-y:scroll;}
 .modal-title{font-family:'Playfair Display',serif;font-size:18px;font-style:italic;margin-bottom:12px;}
 .modal-text{font-size:13px;color:#999;line-height:1.7;margin-bottom:28px;}
 .modal-actions{display:flex;gap:12px;justify-content:center;}
-.modal-btn{padding:8px 24px;font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:300;font-size:11px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;transition:all .15s;border:1px solid #ddd;background:none;color:#999;}
-.modal-btn:hover{border-color:#111;color:#111;}
-.modal-btn.danger{border-color:#111;color:#111;}
-.modal-btn.danger:hover{background:#111;color:#fff;}
 
 /* MATCHES + MESSAGES */
 .list-section{padding:0 24px 100px;}
@@ -110,8 +109,6 @@ body{background:#fff;overflow-y:scroll;}
 .list-sub span{color:#111;font-weight:400;}
 .list-preview{font-size:12px;color:#bbb;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:240px;}
 .list-right{flex-shrink:0;margin-left:12px;}
-.write-btn{background:none;border:1px solid #ddd;padding:7px 14px;font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;cursor:pointer;color:#999;transition:all .15s;}
-.write-btn:hover{border-color:#111;color:#111;}
 .list-overlap{font-size:10px;letter-spacing:1px;text-transform:uppercase;color:#ddd;}
 .list-overlap span{color:#bbb;}
 
@@ -175,8 +172,6 @@ body{background:#fff;overflow-y:scroll;}
 .profile-stmt-dot{width:8px;height:8px;border-radius:50%;border:1px solid #ccc;cursor:pointer;flex-shrink:0;transition:all .15s;}
 .profile-stmt-dot.on{background:#111;border-color:#111;}
 .profile-reset{padding:20px 0 0;text-align:center;}
-.profile-reset-btn{background:none;border:none;font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-weight:300;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:#ccc;cursor:pointer;transition:color .15s;}
-.profile-reset-btn:hover{color:#111;}
 .empty p{font-size:13px;color:#ccc;line-height:2;}
 
 .notif{position:fixed;bottom:32px;left:50%;transform:translateX(-50%);background:#111;color:#fff;font-size:11px;letter-spacing:2px;text-transform:uppercase;padding:10px 20px;pointer-events:none;animation:fade 2.2s ease forwards;white-space:nowrap;z-index:100;}

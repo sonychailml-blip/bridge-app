@@ -132,7 +132,7 @@ export default function Feed({
     } else {
       setClicked(prev => new Set([...prev, id]));
       setStatements(prev => prev.map(s => s.id === id ? { ...s, clicks: (s.clicks||0) + 1 } : s));
-      onNotif("Added to your map");
+      onNotif("Added to your statements");
     }
 
     try {
@@ -197,7 +197,7 @@ export default function Feed({
           onChange={e => setNewStatement(e.target.value)}
           onKeyDown={e => { if(e.key === "Enter") { addStatement(); setSuggestions([]); } }}
         />
-        <button className="add-btn" onClick={addStatement}>Publish</button>
+        <button className="btn btn-primary" onClick={addStatement}>Publish</button>
         </div>
         {newStatement.length > 0 && (
           <div style={{textAlign:"right",fontSize:10,letterSpacing:1,marginTop:4,color: newStatement.length > 200 ? "#c0392b" : "#ccc"}}>
