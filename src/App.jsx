@@ -28,6 +28,7 @@ import Chat from "./components/Chat";
 import Feed from "./components/Feed";
 import { computeLiveCommon } from "./lib/common";
 import { useStatements } from "./hooks/useStatements";
+import { useRecommendations } from "./hooks/useRecommendations";
 import { useMatches } from "./hooks/useMatches";
 import { useChat } from "./hooks/useChat";
 import { useActiveChat } from "./hooks/useActiveChat";
@@ -68,6 +69,7 @@ export default function App() {
 
   // HOOKS
   const { statements, setStatements, lastStmtDoc, setLastStmtDoc, hasMoreStmts, setHasMoreStmts } = useStatements(user);
+  const { recommendedStatements } = useRecommendations(user);
   const { matches, setMatches, newMatchDot, setNewMatchDot, fetchMatches } = useMatches(user, useLocation, useAge, showNotif);
   const { chatList, savedCommonCounts, setSavedCommonCounts, newMessageDot, setNewMessageDot } = useChat(user);
   const {
@@ -409,6 +411,7 @@ export default function App() {
                 isBlocked={isBlocked}
                 statements={statements}
                 setStatements={setStatements}
+                recommendedStatements={recommendedStatements}
                 clicked={clicked}
                 setClicked={setClicked}
                 reported={reported}

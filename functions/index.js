@@ -161,11 +161,6 @@ exports.toggleClick = onCall({ region: "europe-west1", cors: ["https://mybridgea
   const uid = request.auth?.uid;
   if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
 
-  const callerSnap = await db.collection("users").doc(uid).get();
-  if (callerSnap.exists && callerSnap.data().blocked === true) {
-    throw new HttpsError("permission-denied", "Account suspended");
-  }
-
   const { statementId, action } = request.data;
   if (!statementId || !["add", "remove"].includes(action)) {
     throw new HttpsError("invalid-argument", "Invalid arguments");
@@ -175,22 +170,154 @@ exports.toggleClick = onCall({ region: "europe-west1", cors: ["https://mybridgea
   const stmtRef = db.collection("statements").doc(statementId);
   const suRef = db.collection("statement_users").doc(statementId);
 
+  const today = new Date().toISOString().slice(0, 10); // UTC YYYY-MM-DD
+  let recompute = false; // флаг для клиента: пора пересчитать рекомендации (fire-and-forget)
+
   await db.runTransaction(async (t) => {
-    const stmtSnap = await t.get(stmtRef);
+    // Все чтения ДО записей (требование транзакций Firestore).
+    const [stmtSnap, userSnap] = await Promise.all([t.get(stmtRef), t.get(userRef)]);
     if (!stmtSnap.exists) throw new HttpsError("not-found", "Statement not found");
+    const userData = userSnap.exists ? userSnap.data() : {};
+    if (userData.blocked === true) throw new HttpsError("permission-denied", "Account suspended");
 
     const currentClicks = stmtSnap.data().clicks || 0;
     const newClicks = Math.max(0, currentClicks + (action === "add" ? 1 : -1));
 
+    const userUpdate = {
+      clicked: action === "add" ? FieldValue.arrayUnion(statementId) : FieldValue.arrayRemove(statementId),
+    };
+
+    // ── Умное расписание пересчёта рекомендаций — только на "add" ──────────────
+    // Растущий порог: чем активнее юзер, тем реже пересчёт. Первый клик за день —
+    // всегда пересчёт. (Снятие клика расписание не двигает — догонит на следующем add/новом дне.)
+    if (action === "add") {
+      const clickCount = (userData.clickCount || 0) + 1; // монотонный счётчик активности
+      userUpdate.clickCount = clickCount;
+
+      if (userData.lastRecomputeDate !== today) {
+        recompute = true;
+        userUpdate.lastRecomputeDate = today;
+        userUpdate.clicksSinceRecompute = 0;
+      } else {
+        const since = (userData.clicksSinceRecompute || 0) + 1;
+        const threshold = clickCount < 10 ? 3 : clickCount < 30 ? 5 : clickCount < 100 ? 10 : 20;
+        if (since >= threshold) {
+          recompute = true;
+          userUpdate.clicksSinceRecompute = 0;
+        } else {
+          userUpdate.clicksSinceRecompute = since;
+        }
+      }
+    }
+
     t.update(stmtRef, { clicks: newClicks });
-    t.update(userRef, {
-      clicked: action === "add" ? FieldValue.arrayUnion(statementId) : FieldValue.arrayRemove(statementId)
-    });
+    t.update(userRef, userUpdate);
     t.set(suRef, {
       users: action === "add" ? FieldValue.arrayUnion(uid) : FieldValue.arrayRemove(uid)
     }, { merge: true });
   });
 
+  return { success: true, recompute };
+});
+
+// ─── RECOMMENDATIONS (коллаборативная фильтрация) ────────────────────────────
+// Для юзера U: находим самых похожих (кто кликал то же, взвешенно по редкости),
+// и рекомендуем то, что кликали они (authored-утверждения покрыты авто-кликом автора).
+// Все шаги ограничены лимитами, чтобы стоимость не росла с размером базы.
+const REC_MAX_SEED_CLICKS = 50;        // сколько последних кликов U берём в анализ
+const REC_SKIP_POPULARITY_OVER = 1000; // очень популярные утверждения не несут сигнала похожести → пропускаем фан-аут
+const REC_MAX_SIMILAR_USERS = 10;      // топ похожих пользователей
+const REC_MAX_STMTS_PER_USER = 10;     // кандидатов с каждого похожего пользователя
+const REC_FINAL_CAP = 150;             // размер итогового списка рекомендаций
+
+// Вес общего клика по редкости: 1/log2(pop+2). pop=1→0.63, 10→0.29, 500→0.11, 1000→0.10.
+// (та же формула, что в getMatches — единый принцип «реже = весомее».)
+function rarityWeight(popularity) {
+  return 1 / Math.log2((popularity || 0) + 2);
+}
+
+// Тяжёлый пересчёт. НИКОГДА не бросает наружу — вызывающий обёрнут в try/catch.
+async function runRecompute(uid) {
+  const userRef = db.collection("users").doc(uid);
+  const userSnap = await userRef.get();
+  if (!userSnap.exists) return;
+
+  const clicked = userSnap.data().clicked || [];
+  const clickedSet = new Set(clicked);
+  const stamp = { recommendationsUpdatedAt: FieldValue.serverTimestamp() };
+
+  // Шаг 1: нет кликов → нет рекомендаций (фид откатится к обычному).
+  if (clicked.length === 0) {
+    await userRef.update({ recommendations: [], ...stamp });
+    return;
+  }
+  const seeds = clicked.slice(-REC_MAX_SEED_CLICKS); // последние N кликов
+
+  // Шаг 2: похожие пользователи через инвертированный индекс, взвешенно по редкости.
+  const suSnaps = await db.getAll(...seeds.map(id => db.collection("statement_users").doc(id)));
+  const similarity = {}; // otherUid -> score
+  for (const s of suSnaps) {
+    if (!s.exists) continue;
+    const users = s.data().users || [];
+    if (users.length > REC_SKIP_POPULARITY_OVER) continue; // ограничиваем фан-аут
+    const w = rarityWeight(users.length);
+    for (const otherUid of users) {
+      if (otherUid === uid) continue;
+      similarity[otherUid] = (similarity[otherUid] || 0) + w;
+    }
+  }
+  const similarUids = Object.keys(similarity);
+  if (similarUids.length === 0) {
+    await userRef.update({ recommendations: [], ...stamp });
+    return;
+  }
+
+  // Шаг 3: топ-10 похожих.
+  similarUids.sort((a, b) => similarity[b] - similarity[a]);
+  const topUids = similarUids.slice(0, REC_MAX_SIMILAR_USERS);
+
+  // Шаг 4: кандидаты из последних кликов похожих; ранг = сумма similarity «владельцев».
+  const topUserSnaps = await db.getAll(...topUids.map(u => db.collection("users").doc(u)));
+  const candScore = {}; // candidateStmtId -> rankScore
+  topUserSnaps.forEach((us, i) => {
+    if (!us.exists) return;
+    const su = topUids[i];
+    const recent = (us.data().clicked || []).slice(-REC_MAX_STMTS_PER_USER);
+    for (const cid of recent) {
+      if (clickedSet.has(cid)) continue; // U уже кликнул — не рекомендуем
+      candScore[cid] = (candScore[cid] || 0) + similarity[su];
+    }
+  });
+  const candidateIds = Object.keys(candScore);
+  if (candidateIds.length === 0) {
+    await userRef.update({ recommendations: [], ...stamp });
+    return;
+  }
+
+  // Шаг 5: грузим доки кандидатов — отсеиваем удалённые и авторства самого U.
+  const candSnaps = await db.getAll(...candidateIds.map(id => db.collection("statements").doc(id)));
+  const valid = [];
+  for (const cs of candSnaps) {
+    if (!cs.exists) continue;
+    if (cs.data().authorId === uid) continue; // не рекомендуем своё
+    valid.push(cs.id);
+  }
+
+  // Шаг 6+7: ранжируем по rankScore, режем до лимита, сохраняем.
+  valid.sort((a, b) => candScore[b] - candScore[a]);
+  await userRef.update({ recommendations: valid.slice(0, REC_FINAL_CAP), ...stamp });
+}
+
+// Callable: пересчитывает рекомендации ТОЛЬКО для вызывающего (uid из auth).
+// Клиент дёргает её fire-and-forget после toggleClick, когда вернулся recompute:true.
+exports.computeRecommendations = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {
+  const uid = request.auth?.uid;
+  if (!uid) throw new HttpsError("unauthenticated", "Not logged in");
+  try {
+    await runRecompute(uid);
+  } catch (e) {
+    console.error("computeRecommendations error for", uid, e); // не бросаем — старые реки остаются
+  }
   return { success: true };
 });
 

@@ -13,6 +13,7 @@ const MONTH = 30 * 24 * 3600000;
 export default function Feed({
   user, nickname, isBlocked,
   statements, setStatements,
+  recommendedStatements = [],
   clicked, setClicked,
   reported, setReported,
   matches,
@@ -138,7 +139,14 @@ export default function Feed({
     try {
       const fns = getFunctions(undefined, "europe-west1");
       const toggleClickFn = httpsCallable(fns, "toggleClick");
-      await toggleClickFn({ statementId: id, action });
+      const res = await toggleClickFn({ statementId: id, action });
+      // Сервер решает по умному расписанию, пора ли пересчитать рекомендации.
+      // Дёргаем пересчёт fire-and-forget (НЕ await) — клик остаётся быстрым,
+      // реки обновятся фоном (подписка в useRecommendations подхватит).
+      if (res?.data?.recompute) {
+        httpsCallable(fns, "computeRecommendations")()
+          .catch(err => console.error("computeRecommendations trigger error:", err));
+      }
     } catch (e) {
       console.error("toggleClick error:", e);
       // откат оптимистичных изменений к прежнему состоянию
@@ -186,7 +194,32 @@ export default function Feed({
       return 0;
     });
 
-  const displayList = searchResults ?? sortedStatements;
+  // Рекомендации доминируют в фиде (когда не идёт поиск и они есть).
+  // Обычные утверждения — минимальный «филлер» снизу, без дублей рекомендаций.
+  // Фолбэк: нет рекомендаций (новый юзер / пусто) → обычный фид как раньше.
+  const hasRecs = !searchQuery.trim() && recommendedStatements.length > 0;
+  const recIdSet = new Set(recommendedStatements.map(s => s.id));
+  const recList = recommendedStatements.filter(s => !reported.has(s.id));
+  const fillerStatements = sortedStatements.filter(s => !recIdSet.has(s.id));
+
+  // единый рендер карточки утверждения
+  const renderStmt = (s) => (
+    <div key={s.id} className="stmt" onClick={() => toggleClick(s.id)}>
+      <div className="stmt-left">
+        <div className={`stmt-text ${clicked.has(s.id)?"on":""}`}>{s.text}</div>
+        <div className="stmt-meta">{s.author}</div>
+      </div>
+      <div className="stmt-right">
+        <div className={`dot ${clicked.has(s.id)?"on":""}`}/>
+        <div className="cnt">{Math.max(0, s.clicks||0).toLocaleString()}</div>
+        {/* report button hidden — re-enable by changing `false &&` back to the original condition. Report logic is intact. */}
+        {false && s.authorId !== user.uid && !reported.has(s.id) && (
+          <button className="r-btn" onClick={e => { e.stopPropagation(); onReport(s.id); }}>r</button>
+        )}
+        {false && reported.has(s.id) && <span className="r-done">r</span>}
+      </div>
+    </div>
+  );
 
   return (
     <>
@@ -225,30 +258,36 @@ export default function Feed({
 
       <div className="feed-section">
         {searchLoading && <div style={{padding:"24px 0",textAlign:"center",fontSize:11,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>searching…</div>}
-        {!searchLoading && displayList.length === 0 && (
-          <div className="empty"><p>{searchQuery ? "nothing found" : "no statements yet"}<br/>{!searchQuery && "be the first to write one"}</p></div>
+
+        {/* ПОИСК */}
+        {!searchLoading && searchResults && (
+          searchResults.length === 0
+            ? <div className="empty"><p>nothing found</p></div>
+            : searchResults.map(renderStmt)
         )}
-        {!searchLoading && displayList.map(s => (
-          <div key={s.id} className="stmt" onClick={() => toggleClick(s.id)}>
-            <div className="stmt-left">
-              <div className={`stmt-text ${clicked.has(s.id)?"on":""}`}>{s.text}</div>
-              <div className="stmt-meta">{s.author}</div>
-            </div>
-            <div className="stmt-right">
-              <div className={`dot ${clicked.has(s.id)?"on":""}`}/>
-              <div className="cnt">{Math.max(0, s.clicks||0).toLocaleString()}</div>
-              {/* report button hidden — re-enable by changing `false &&` back to the original condition. Report logic is intact. */}
-              {false && s.authorId !== user.uid && !reported.has(s.id) && (
-                <button className="r-btn"
-                  onClick={e => { e.stopPropagation(); onReport(s.id); }}>
-                  r
-                </button>
-              )}
-              {false && reported.has(s.id) && <span className="r-done">r</span>}
-            </div>
-          </div>
-        ))}
-        {hasMoreStmts && (
+
+        {/* РЕКОМЕНДАЦИИ доминируют, обычный фид — минимальный филлер снизу */}
+        {!searchLoading && !searchResults && hasRecs && (
+          <>
+            <div className="rec-label">for you</div>
+            {recList.map(renderStmt)}
+            {fillerStatements.length > 0 && (
+              <>
+                <div className="rec-label rec-label-more">more</div>
+                {fillerStatements.map(renderStmt)}
+              </>
+            )}
+          </>
+        )}
+
+        {/* ФОЛБЭК: нет рекомендаций → обычный фид как раньше */}
+        {!searchLoading && !searchResults && !hasRecs && (
+          sortedStatements.length === 0
+            ? <div className="empty"><p>no statements yet<br/>be the first to write one</p></div>
+            : sortedStatements.map(renderStmt)
+        )}
+
+        {!searchLoading && !searchResults && hasMoreStmts && (
           <div ref={feedEndRef} style={{padding:"16px 0",textAlign:"center"}}>
             {loadingMore && <span style={{fontSize:10,letterSpacing:2,textTransform:"uppercase",color:"#ccc"}}>loading…</span>}
           </div>

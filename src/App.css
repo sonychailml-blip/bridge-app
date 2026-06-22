@@ -69,6 +69,8 @@ body{background:#fff;overflow-y:scroll;}
 
 /* FEED */
 .feed-section{padding:0 24px 100px;}
+.rec-label{padding:18px 0 6px;font-size:9px;letter-spacing:2px;text-transform:uppercase;color:#bbb;}
+.rec-label-more{margin-top:10px;border-top:1px solid #f5f5f5;color:#ddd;}
 .add-input::placeholder{color:#ccc;}
 .add-row{display:flex;align-items:center;justify-content:space-between;margin-top:10px;}
 .statement-row{display:flex;align-items:flex-end;gap:12px;}
