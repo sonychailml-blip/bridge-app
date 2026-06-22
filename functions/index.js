@@ -1,6 +1,6 @@
 const { setGlobalOptions } = require("firebase-functions");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
-const { onSchedule } = require("firebase-functions/v2/scheduler");
+// const { onSchedule } = require("firebase-functions/v2/scheduler"); // disabled with cleanupOldStatements — statements are now permanent
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 const { initializeApp } = require("firebase-admin/app");
 
@@ -258,7 +258,12 @@ exports.createStatement = onCall({ region: "europe-west1", cors: ["https://mybri
   return { id: stmtRef.id };
 });
 
-// ─── CLEANUP OLD STATEMENTS ──────────────────────────────────────────────────
+// ─── CLEANUP OLD STATEMENTS — DISABLED 2026-06-22 ────────────────────────────
+// Statements are now PERMANENT (no 30-day expiration) to build a rich, persistent
+// pool for the recommendation system. The scheduled deletion is commented out so the
+// export is removed on deploy and Firebase deletes the Cloud Scheduler trigger.
+// To re-enable: uncomment this block AND the onSchedule import at the top of the file.
+/*
 exports.cleanupOldStatements = onSchedule({
   schedule: "0 3 * * *",
   region: "europe-west1",
@@ -344,6 +349,7 @@ exports.cleanupOldStatements = onSchedule({
 
   console.log(`Deleted ${totalStatements} old statements; cleaned ${totalClickRefsCleaned} clicked references across users`);
 });
+*/
 
 // ─── RESET MAP ────────────────────────────────────────────────────────────────
 exports.resetMap = onCall({ region: "europe-west1", cors: ["https://mybridgeapp.vercel.app"] }, async (request) => {

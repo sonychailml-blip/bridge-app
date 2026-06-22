@@ -1,0 +1,5 @@
+# Service-account key — FULL admin access to the database. NEVER commit this.
+serviceAccountKey.json
+
+# Node deps
+node_modules/

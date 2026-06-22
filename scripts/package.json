@@ -1,0 +1,14 @@
+{
+  "name": "bridge-scripts",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Standalone admin scripts for the H (Bridge) app — system account + bulk statement upload.",
+  "type": "commonjs",
+  "scripts": {
+    "init-h": "node init-h-account.js",
+    "upload": "node upload-statements.js"
+  },
+  "dependencies": {
+    "firebase-admin": "^13.6.0"
+  }
+}
