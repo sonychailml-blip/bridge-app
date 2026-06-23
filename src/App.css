@@ -81,9 +81,11 @@ body{background:#fff;overflow-y:scroll;}
 .stmt:hover{opacity:.85;}
 .stmt:hover .report-btn{opacity:1;}
 .stmt-left{flex:1;}
-.stmt-text{font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;font-weight:300;line-height:1.5;color:#111;transition:all .15s;overflow-wrap:break-word;word-break:break-word;}
+.stmt-text-wrap{position:relative;}
+.stmt-text,.stmt-text-ghost{font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;line-height:1.5;color:#111;overflow-wrap:break-word;word-break:break-word;}
+.stmt-text-ghost{font-weight:700;visibility:hidden;}
+.stmt-text{position:absolute;top:0;left:0;right:0;font-weight:300;transition:all .15s;}
 .stmt-text.on{font-weight:700;}
-.stmt-text::after{content:attr(data-text);font-weight:700;display:block;height:0;visibility:hidden;overflow:hidden;}
 .stmt-meta{font-family:'Playfair Display',serif;font-size:10px;letter-spacing:1px;color:#ccc;margin-top:3px;text-transform:uppercase;}
 .stmt-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
 .dot{width:8px;height:8px;border-radius:50%;border:1px solid #ccc;transition:all .2s;}

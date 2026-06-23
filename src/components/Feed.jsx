@@ -206,7 +206,10 @@ export default function Feed({
   const renderStmt = (s) => (
     <div key={s.id} className="stmt" onClick={() => toggleClick(s.id)}>
       <div className="stmt-left">
-        <div className={`stmt-text ${clicked.has(s.id)?"on":""}`} data-text={s.text}>{s.text}</div>
+        <div className="stmt-text-wrap">
+          <div className="stmt-text-ghost" aria-hidden="true">{s.text}</div>
+          <div className={`stmt-text ${clicked.has(s.id)?"on":""}`}>{s.text}</div>
+        </div>
         <div className="stmt-meta">{s.author}</div>
       </div>
       <div className="stmt-right">
