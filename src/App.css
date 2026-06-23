@@ -83,6 +83,7 @@ body{background:#fff;overflow-y:scroll;}
 .stmt-left{flex:1;}
 .stmt-text{font-family:'Noto Sans',system-ui,-apple-system,'Segoe UI',sans-serif;font-size:15px;font-weight:300;line-height:1.5;color:#111;transition:all .15s;overflow-wrap:break-word;word-break:break-word;}
 .stmt-text.on{font-weight:700;}
+.stmt-text::after{content:attr(data-text);font-weight:700;display:block;height:0;visibility:hidden;overflow:hidden;}
 .stmt-meta{font-family:'Playfair Display',serif;font-size:10px;letter-spacing:1px;color:#ccc;margin-top:3px;text-transform:uppercase;}
 .stmt-right{display:flex;flex-direction:column;align-items:flex-end;gap:5px;flex-shrink:0;}
 .dot{width:8px;height:8px;border-radius:50%;border:1px solid #ccc;transition:all .2s;}
